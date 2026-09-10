@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Management - Blooms by Jen</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 Framework -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+<body>
+
+<div id="app">
+
+    <!-- GLOBAL NAVIGATION BAR -->
+    <nav class="navbar">
+        <div class="brand-logo" @click="navigateTo('landing')">
+            <div class="brand-logo-icon">
+                <i class="fa-solid fa-spa icon-white"></i>
+            </div>
+            <div>
+                <span class="brand-title">Blooms by Jen</span>
+            </div>
+        </div>
+
+        <button v-if="isLoggedIn" class="mobile-toggle-btn" @click="toggleMobileMenu" aria-label="Toggle Navigation Menu">
+            <i :class="isMobileMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
+        </button>
+
+        <ul v-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('dashboard')" href="dashboard.html">
+                    <i class="fa-solid fa-chart-line"></i> <span>Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link active" @click.prevent="navigateTo('orders')" href="order.html">
+                    <i class="fa-solid fa-receipt"></i> <span>Orders</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('inventory')" href="inventory.html">
+                    <i class="fa-solid fa-boxes-stacked"></i> <span>Inventory</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('sales')" href="sales.html">
+                    <i class="fa-solid fa-cash-register"></i> <span>Sales</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('reports')" href="report.html">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> <span>Reports</span>
+                </a>
+            </li>
+        </ul>
+
+        <div v-if="isLoggedIn" class="user-badge">
+            <i class="fa-solid fa-user-circle"></i>
+            <span>{{ currentUser.name }}</span>
+            <button class="btn btn-sm btn-outline ms-2" @click="handleLogout" title="Logout">
+                <i class="fa-solid fa-power-off"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ORDERS SECTION -->
+    <main class="layout-container">
+        <div class="page-header">
+            <div class="page-title-group">
+                <h1>Order Management</h1>
+                <p class="page-subtitle">Track custom handmade bouquet orders and update delivery status.</p>
+            </div>
+            <div class="header-btn-group">
+                <button class="btn btn-secondary" @click="navigateTo('dashboard')">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+                </button>
+                <button class="btn btn-primary" @click="openModal('addEditOrder')">
+                    <i class="fa-solid fa-plus"></i> Add New Order
+                </button>
+            </div>
+        </div>
+
+        <div class="glass-card filter-bar">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" class="form-control" v-model="orderSearch" placeholder="Search by customer, bouquet, or order ID...">
+            </div>
+
+            <div class="filter-select-group">
+                <label class="filter-label">Status Filter:</label>
+                <select class="form-control select-auto" v-model="orderStatusFilter">
+                    <option value="All">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Delivered">Delivered</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Orders Table -->
+        <div class="glass-card">
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Bouquet Details</th>
+                            <th>Wrap & Ribbon</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="order in filteredOrders" :key="order.id">
+                            <td class="cell-id">{{ order.id }}</td>
+                            <td>
+                                <strong>{{ order.customerName }}</strong>
+                                <div class="cell-subtext">{{ order.date }}</div>
+                            </td>
+                            <td>
+                                <div>
+                                    {{ order.bouquetType }} 
+                                    <span v-if="order.quantity && order.quantity > 1" class="badge badge-sky badge-quantity ms-1">x{{ order.quantity }}</span>
+                                </div>
+                                <div v-if="order.customMessage" class="cell-italic-subtext">
+                                    "{{ order.customMessage }}"
+                                </div>
+                            </td>
+                            <td class="cell-sm">
+                                <div><i class="fa-solid fa-gift text-rose"></i> {{ order.wrappingColor }}</div>
+                                <div><i class="fa-solid fa-ribbon text-amber"></i> {{ order.ribbonColor }}</div>
+                            </td>
+                            <td class="cell-bold">₱{{ Number(order.price).toLocaleString() }}</td>
+                            <td>
+                                <select class="form-control select-status" :value="order.status" @change="updateOrderStatus(order, $event.target.value)">
+                                    <option value="Pending">Pending</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Delivered">Delivered</option>
+                                </select>
+                            </td>
+                            <td>
+                                <div class="table-action-btns">
+                                    <button class="btn btn-sm btn-secondary" @click="openModal('addEditOrder', order)" title="Edit Order">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" @click="deleteOrder(order.id)" title="Delete Order">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr v-if="filteredOrders.length === 0">
+                            <td colspan="7" class="table-empty-cell">
+                                No custom bouquet orders match your search criteria.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- ADD / EDIT ORDER MODAL -->
+    <div v-if="activeModal === 'addEditOrder'" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>{{ isEditingOrder ? 'Edit Custom Order' : 'Create Custom Bouquet Order' }}</h3>
+                <button class="btn btn-sm btn-secondary" @click="closeModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form @submit.prevent="saveOrder">
+                <div class="modal-body form-grid">
+                    <div class="form-group">
+                        <label>Customer Full Name *</label>
+                        <input type="text" class="form-control" v-model="orderForm.customerName" placeholder="e.g. Maria Santos" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Order Date</label>
+                        <input type="date" class="form-control" v-model="orderForm.date" required>
+                    </div>
+
+                    <div class="form-group form-full">
+                        <label>Bouquet Arrangement Type</label>
+                        <select class="form-control" v-model="orderForm.bouquetType" @change="onBouquetTypeChange">
+                            <option v-for="item in inventory" :key="item.id" :value="item.itemName">
+                                {{ item.itemName }} — ₱{{ Number(item.unitPrice).toLocaleString() }} (Stock: {{ item.stock }})
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="form-full bouquet-customizer-box">
+                        <h4 class="customizer-title">
+                            <i class="fa-solid fa-palette"></i> Bouquet Customization
+                        </h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Wrapping Paper Color</label>
+                                <input type="text" class="form-control" v-model="orderForm.wrappingColor" placeholder="e.g. Soft Blush Pink">
+                            </div>
+                            <div class="form-group">
+                                <label>Ribbon Color</label>
+                                <input type="text" class="form-control" v-model="orderForm.ribbonColor" placeholder="e.g. Golden Amber Satin">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            Order Quantity 
+                            <span v-if="selectedInventoryItem" class="stock-indicator-info">
+                                (Max Stock: {{ selectedInventoryItem.stock }})
+                            </span>
+                        </label>
+                        <input 
+                            type="number" 
+                            class="form-control" 
+                            v-model.number="orderForm.quantity" 
+                            @input="updateOrderCalculatedPrice" 
+                            @change="updateOrderCalculatedPrice" 
+                            min="1" 
+                            :max="maxOrderQuantity" 
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>Total Price (PHP) <span class="label-badge-auto">(Auto-Calculated)</span></label>
+                        <input type="number" class="form-control input-calculated-price" v-model="orderForm.price" required min="0" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Order Status</label>
+                        <select class="form-control" v-model="orderForm.status">
+                            <option value="Pending">Pending</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Delivered">Delivered</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group form-full">
+                        <label>Greeting Card Note / Special Instructions</label>
+                        <textarea class="form-control" v-model="orderForm.customMessage" rows="2" placeholder="Message written on greeting card..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @click="closeModal">
+                        Back to Orders
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Order
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast-container" v-if="toast.show">
+        <div class="toast">
+            <i class="fa-solid fa-circle-info toast-icon"></i>
+            <span>{{ toast.message }}</span>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+        <p><strong>Blooms by Jen</strong> • Handmade Flower Shop Management System</p>
+    </footer>
+
+</div>
+
+<!-- Application Logic -->
+<script src="../JS/app.js"></script>
+</body>
+</html>
