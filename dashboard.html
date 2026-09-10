@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overview Dashboard - Blooms by Jen</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap"
+        rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 Framework -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+
+<body>
+
+    <div id="app">
+
+        <!-- GLOBAL NAVIGATION BAR -->
+        <nav class="navbar">
+            <div class="brand-logo" @click="navigateTo('landing')">
+                <div class="brand-logo-icon">
+                    <i class="fa-solid fa-spa icon-white"></i>
+                </div>
+                <div>
+                    <span class="brand-title">Blooms by Jen</span>
+                </div>
+            </div>
+
+            <button v-if="isLoggedIn" class="mobile-toggle-btn" @click="toggleMobileMenu"
+                aria-label="Toggle Navigation Menu">
+                <i :class="isMobileMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
+            </button>
+
+            <ul v-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
+                <li>
+                    <a class="nav-link active" @click.prevent="navigateTo('dashboard')" href="dashboard.html">
+                        <i class="fa-solid fa-chart-line"></i> <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" @click.prevent="navigateTo('orders')" href="order.html">
+                        <i class="fa-solid fa-receipt"></i> <span>Orders</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" @click.prevent="navigateTo('inventory')" href="inventory.html">
+                        <i class="fa-solid fa-boxes-stacked"></i> <span>Inventory</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" @click.prevent="navigateTo('sales')" href="sales.html">
+                        <i class="fa-solid fa-cash-register"></i> <span>Sales</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" @click.prevent="navigateTo('reports')" href="report.html">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> <span>Reports</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div v-if="isLoggedIn" class="user-badge">
+                <i class="fa-solid fa-user-circle"></i>
+                <span>{{ currentUser.name }}</span>
+                <button class="btn btn-sm btn-outline ms-2" @click="handleLogout" title="Logout">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- DASHBOARD SECTION -->
+        <main class="layout-container">
+            <div class="page-header">
+                <div class="page-title-group">
+                    <h1>Overview Dashboard</h1>
+                    <p class="page-subtitle">Welcome back, Ms. Jenelyn Ortiz! Here is your daily shop overview.</p>
+                </div>
+            </div>
+
+            <!-- Metrics Cards -->
+            <section class="metrics-grid">
+                <div class="glass-card metric-card">
+                    <div class="metric-icon-box metric-icon-orders">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                    <div class="metric-info">
+                        <h4>Total Orders</h4>
+                        <div class="value">{{ totalOrdersCount }}</div>
+                    </div>
+                </div>
+
+                <div class="glass-card metric-card">
+                    <div class="metric-icon-box metric-icon-stock">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div class="metric-info">
+                        <h4>Low Stock Items</h4>
+                        <div class="value"
+                            :class="lowStockItemsCount > 0 ? 'metric-low-stock-alert' : 'metric-low-stock-good'">
+                            {{ lowStockItemsCount }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card metric-card">
+                    <div class="metric-icon-box metric-icon-sales">
+                        <i class="fa-solid fa-peso-sign"></i>
+                    </div>
+                    <div class="metric-info">
+                        <h4>Today's Sales</h4>
+                        <div class="value">₱{{ todaySalesRevenue.toLocaleString() }}</div>
+                    </div>
+                </div>
+
+                <div class="glass-card metric-card">
+                    <div class="metric-icon-box metric-icon-items">
+                        <i class="fa-solid fa-boxes-packing"></i>
+                    </div>
+                    <div class="metric-info">
+                        <h4>Total Stock Varieties</h4>
+                        <div class="value">{{ inventory.length }}</div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- Low Stock Warning Box -->
+            <div v-if="lowStockItemsCount > 0" class="low-stock-alert-banner">
+                <div class="low-stock-alert-content">
+                    <i class="fa-solid fa-triangle-exclamation low-stock-alert-icon"></i>
+                    <div>
+                        <h4 class="low-stock-alert-title">Low Stock Warning Alert!</h4>
+                        <p class="low-stock-alert-text">
+                            {{ lowStockItemsCount }} flower stock item(s) are below the 10-unit minimum threshold.
+                        </p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-danger" @click="navigateTo('inventory')">
+                    Inspect Inventory
+                </button>
+            </div>
+
+        </main>
+
+        <!-- ADD / EDIT ORDER MODAL -->
+        <div v-if="activeModal === 'addEditOrder'" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>{{ isEditingOrder ? 'Edit Custom Order' : 'Create Custom Bouquet Order' }}</h3>
+                    <button class="btn btn-sm btn-secondary" @click="closeModal"><i
+                            class="fa-solid fa-xmark"></i></button>
+                </div>
+                <form @submit.prevent="saveOrder">
+                    <div class="modal-body form-grid">
+                        <div class="form-group">
+                            <label>Customer Full Name *</label>
+                            <input type="text" class="form-control" v-model="orderForm.customerName"
+                                placeholder="e.g. Maria Santos" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Order Date</label>
+                            <input type="date" class="form-control" v-model="orderForm.date" required>
+                        </div>
+
+                        <div class="form-group form-full">
+                            <label>Bouquet Arrangement Type</label>
+                            <select class="form-control" v-model="orderForm.bouquetType" @change="onBouquetTypeChange">
+                                <option v-for="item in inventory" :key="item.id" :value="item.itemName">
+                                    {{ item.itemName }} — ₱{{ Number(item.unitPrice).toLocaleString() }} (Stock: {{
+                                    item.stock }})
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="form-full bouquet-customizer-box">
+                            <h4 class="customizer-title">
+                                <i class="fa-solid fa-palette"></i> Bouquet Customization
+                            </h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Wrapping Paper Color</label>
+                                    <input type="text" class="form-control" v-model="orderForm.wrappingColor"
+                                        placeholder="e.g. Soft Blush Pink">
+                                </div>
+                                <div class="form-group">
+                                    <label>Ribbon Color</label>
+                                    <input type="text" class="form-control" v-model="orderForm.ribbonColor"
+                                        placeholder="e.g. Golden Amber Satin">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Order Quantity
+                                <span v-if="selectedInventoryItem" class="stock-indicator-info">
+                                    (Max Stock: {{ selectedInventoryItem.stock }})
+                                </span>
+                            </label>
+                            <input type="number" class="form-control" v-model.number="orderForm.quantity"
+                                @input="updateOrderCalculatedPrice" @change="updateOrderCalculatedPrice" min="1"
+                                :max="maxOrderQuantity" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Total Price (PHP) <span class="label-badge-auto">(Auto-Calculated)</span></label>
+                            <input type="number" class="form-control input-calculated-price" v-model="orderForm.price"
+                                required min="0" readonly>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Order Status</label>
+                            <select class="form-control" v-model="orderForm.status">
+                                <option value="Pending">Pending</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Delivered">Delivered</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group form-full">
+                            <label>Greeting Card Note / Special Instructions</label>
+                            <textarea class="form-control" v-model="orderForm.customMessage" rows="2"
+                                placeholder="Message written on greeting card..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @click="closeModal">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Order
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- TOAST NOTIFICATION -->
+        <div class="toast-container" v-if="toast.show">
+            <div class="toast">
+                <i class="fa-solid fa-circle-info toast-icon"></i>
+                <span>{{ toast.message }}</span>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="app-footer">
+            <p><strong>Blooms by Jen</strong> • Handmade Flower Shop Management System</p>
+        </footer>
+
+    </div>
+
+    <!-- Application Logic -->
+    <script src="../JS/app.js"></script>
+</body>
+
+</html>

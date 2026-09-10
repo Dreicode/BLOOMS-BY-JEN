@@ -9,8 +9,7 @@ floral management system for Blooms by Jen - Handmade Flower Shop
 The Features are:
 Order Management with custom bouquet tracking
 Real-time Inventory Monitoring with low-stock alerts
-Sales Recording with GCash, Cash, and Bank Transfer support
-Business Reports & Analytics with CSV export
+Sales Recording with GCash, Cash,and Reports with CSV export
 Mobile-responsive design 
 
 
@@ -20,7 +19,7 @@ step #2: Add Collaborators or Members
 step #3:Use the Codespace
 
 TEAM Apex Coder 2.0
-Leader:Punzalan, Ronald Andrei G. 
+Leader:Punzalan, Ronald Andrei G.  
 Members: 
 Calim, Lovely Rose 
 Canoza, Ryan James 

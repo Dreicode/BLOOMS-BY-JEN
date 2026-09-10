@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Owner Login - Blooms by Jen</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap"
+        rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 Framework -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+
+<body>
+
+    <div id="app">
+
+
+        <nav class="navbar">
+            <div class="brand-logo" @click="navigateTo('landing')">
+                <div class="brand-logo-icon">
+                    <i class="fa-solid fa-spa icon-white"></i>
+                </div>
+                <div>
+                    <span class="brand-title">Blooms by Jen</span>
+                </div>
+            </div>
+
+            <button v-if="isLoggedIn" class="mobile-toggle-btn" @click="toggleMobileMenu"
+                aria-label="Toggle Navigation Menu">
+                <i :class="isMobileMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
+            </button>
+
+            <ul v-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'dashboard' }"
+                        @click.prevent="navigateTo('dashboard')" href="dashboard.html">
+                        <i class="fa-solid fa-chart-line"></i> <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'orders' }"
+                        @click.prevent="navigateTo('orders')" href="order.html">
+                        <i class="fa-solid fa-receipt"></i> <span>Orders</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'inventory' }"
+                        @click.prevent="navigateTo('inventory')" href="inventory.html">
+                        <i class="fa-solid fa-boxes-stacked"></i> <span>Inventory</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'sales' }"
+                        @click.prevent="navigateTo('sales')" href="sales.html">
+                        <i class="fa-solid fa-cash-register"></i> <span>Sales</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'reports' }"
+                        @click.prevent="navigateTo('reports')" href="report.html">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> <span>Reports</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div v-if="isLoggedIn" class="user-badge">
+                <i class="fa-solid fa-user-circle"></i>
+                <span>{{ currentUser.name }}</span>
+                <button class="btn btn-sm btn-outline ms-2" @click="handleLogout" title="Logout">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
+            </div>
+        </nav>
+
+       
+        <main class="layout-container login-wrapper">
+            <div class="glass-card login-card">
+                <div class="login-header">
+                    <div class="brand-logo-icon login-logo-icon">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <h2>Owner Authentication</h2>
+                    <p class="page-subtitle">Access Blooms by Jen Management Suite</p>
+                </div>
+
+                <form @submit.prevent="handleLogin">
+                    <div v-if="loginForm.error" class="login-error-alert">
+                        {{ loginForm.error }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Owner Email</label>
+                        <input type="email" id="email" class="form-control" v-model="loginForm.email"
+                            placeholder="Enter owner email" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <div class="input-icon-wrapper">
+                            <input :type="loginForm.showPassword ? 'text' : 'password'" id="password"
+                                class="form-control" v-model="loginForm.password" placeholder="Enter password" required>
+                            <i :class="loginForm.showPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"
+                                @click="loginForm.showPassword = !loginForm.showPassword"></i>
+                        </div>
+                    </div>
+
+                    <div class="login-demo-wrapper">
+                        <span class="demo-fill-btn" @click="fillDemoCredentials">
+                            <i class="fa-solid fa-key"></i> Auto-fill Demo Credentials
+                        </span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-full-width">
+                        <i class="fa-solid fa-right-to-bracket"></i> Sign In to Dashboard
+                    </button>
+                </form>
+
+                <div class="login-back-wrapper">
+                    <a @click.prevent="navigateTo('landing')" href="landingpage.html" class="login-back-link">
+                        <i class="fa-solid fa-arrow-left"></i> Back to Landing Page
+                    </a>
+                </div>
+            </div>
+        </main>
+
+     
+        <div class="toast-container" v-if="toast.show">
+            <div class="toast">
+                <i class="fa-solid fa-circle-info toast-icon"></i>
+                <span>{{ toast.message }}</span>
+            </div>
+        </div>
+
+    
+        <footer class="app-footer">
+            <p><strong>Blooms by Jen</strong> • Handmade Flower Shop Management System</p>
+        </footer>
+
+    </div>
+
+    <!-- Application Logic -->
+    <script src="../JS/app.js"></script>
+</body>
+
+</html>
