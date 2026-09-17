@@ -16,6 +16,13 @@
     <link rel="stylesheet" href="../CSS/style.css">
 </head>
 <body>
+    <div id="app-loading" style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;">
+  <div style="text-align:center;">
+    <div style="width:40px;height:40px;border:4px solid #fecdd3;border-top-color:#e11d48;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem;"></div>
+    <p style="color:#64748b;">Loading Blooms by Jen...</p>
+  </div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
 <div id="app">
 
@@ -183,7 +190,8 @@
                 <div class="modal-body form-grid">
                     <div class="form-group">
                         <label>Customer Full Name *</label>
-                        <input type="text" class="form-control" v-model="orderForm.customerName" placeholder="e.g. Maria Santos" required>
+                        <input type="text" class="form-control" :class="{ 'input-error': orderErrors.customerName }" v-model="orderForm.customerName" @input="clearOrderErrors" placeholder="e.g. Maria Santos" required>
+                        <div v-if="orderErrors.customerName" class="field-error">{{ orderErrors.customerName }}</div>
                     </div>
 
                     <div class="form-group">
@@ -226,13 +234,15 @@
                         <input 
                             type="number" 
                             class="form-control" 
+                            :class="{ 'input-error': orderErrors.quantity }"
                             v-model.number="orderForm.quantity" 
-                            @input="updateOrderCalculatedPrice" 
+                            @input="updateOrderCalculatedPrice; clearOrderErrors()" 
                             @change="updateOrderCalculatedPrice" 
                             min="1" 
                             :max="maxOrderQuantity" 
                             required
                         >
+                        <div v-if="orderErrors.quantity" class="field-error">{{ orderErrors.quantity }}</div>
                     </div>
 
                     <div class="form-group">
@@ -265,6 +275,25 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- CONFIRM MODAL -->
+    <div v-if="confirmModal.show" class="modal-overlay" @click.self="confirmModal.show = false">
+        <div class="modal-content" style="max-width:420px;text-align:center;">
+            <div class="modal-body" style="padding:2rem;">
+                <div style="width:60px;height:60px;background:#fef3c7;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size:1.8rem;color:#d97706;"></i>
+                </div>
+                <h3 style="margin-bottom:0.5rem;">{{ confirmModal.title }}</h3>
+                <p style="color:var(--slate-600);">{{ confirmModal.message }}</p>
+            </div>
+            <div class="modal-footer" style="justify-content:center;border-top:none;">
+                <button class="btn btn-secondary" @click="confirmModal.show = false">Cancel</button>
+                <button class="btn btn-danger" @click="confirmModal.onConfirm(); confirmModal.show = false;">
+                    <i class="fa-solid fa-trash"></i> Confirm Delete
+                </button>
+            </div>
         </div>
     </div>
 

@@ -152,6 +152,10 @@ createApp({
         watch(sales, (newVal) => localStorage.setItem('blooms_sales', JSON.stringify(newVal)), { deep: true });
 
         onMounted(() => {
+            // Hide loading spinner
+            const loader = document.getElementById('app-loading');
+            if (loader) loader.style.display = 'none';
+
             // Protected screen route guard
             const protectedScreens = ['dashboard', 'orders', 'inventory', 'sales', 'reports'];
             if (protectedScreens.includes(currentScreen.value) && !isLoggedIn.value) {
@@ -170,6 +174,29 @@ createApp({
 
         const salesSearch = ref('');
         const salesDateFilter = ref('All');
+
+        // --- Validation Errors ---
+        const loginErrors = ref({});
+        const orderErrors = ref({});
+        const itemErrors = ref({});
+        const saleErrors = ref({});
+
+        const clearLoginErrors = () => { loginErrors.value = {}; };
+        const clearOrderErrors = () => { orderErrors.value = {}; };
+        const clearItemErrors = () => { itemErrors.value = {}; };
+        const clearSaleErrors = () => { saleErrors.value = {}; };
+
+        // --- Confirm Modal ---
+        const confirmModal = ref({
+            show: false,
+            title: '',
+            message: '',
+            onConfirm: () => {}
+        });
+
+        const showConfirm = (title, message, onConfirm) => {
+            confirmModal.value = { show: true, title, message, onConfirm };
+        };
 
         // --- Form Models for Modals ---
         const isEditingOrder = ref(false);
@@ -236,11 +263,23 @@ createApp({
 
         // --- Auth Logic ---
         const handleLogin = () => {
-            if (!loginForm.value.email || !loginForm.value.password) {
-                loginForm.value.error = 'Please enter both email and password.';
-                return;
+            clearLoginErrors();
+            let hasError = false;
+
+            if (!loginForm.value.email) {
+                loginErrors.value.email = 'Email is required';
+                hasError = true;
+            } else if (!/\S+@\S+\.\S+/.test(loginForm.value.email)) {
+                loginErrors.value.email = 'Please enter a valid email';
+                hasError = true;
             }
-            loginForm.value.error = '';
+
+            if (!loginForm.value.password) {
+                loginErrors.value.password = 'Password is required';
+                hasError = true;
+            }
+
+            if (hasError) return;
 
             if ((loginForm.value.email === 'jenelyn.ortiz@bloomsbyjen.com' || loginForm.value.email === 'demo@bloomsbyjen.com' || loginForm.value.email === 'admin@bloomsbyjen.com') &&
                 (loginForm.value.password === 'password123' || loginForm.value.password === 'teacherJen2026' || loginForm.value.password === 'admin123')) {
@@ -250,7 +289,7 @@ createApp({
                 showToast('Welcome back, Ms. Jenelyn Ortiz!');
                 navigateTo('dashboard');
             } else {
-                loginForm.value.error = 'Invalid login credentials.';
+                loginErrors.value.password = 'Incorrect password';
             }
         };
 
@@ -379,10 +418,28 @@ createApp({
 
         // --- Orders Actions ---
         const saveOrder = () => {
-            if (!orderForm.value.customerName) {
-                showToast('Please enter customer name', 'error');
-                return;
+            clearOrderErrors();
+            let hasError = false;
+
+            if (!orderForm.value.customerName || orderForm.value.customerName.trim().length < 2) {
+                orderErrors.value.customerName = 'Customer name must be at least 2 characters';
+                hasError = true;
             }
+
+            if (!orderForm.value.quantity || orderForm.value.quantity < 1) {
+                orderErrors.value.quantity = 'Quantity must be at least 1';
+                hasError = true;
+            }
+
+            if (!isEditingOrder.value) {
+                const exists = orders.value.some(o => o.id === orderForm.value.id);
+                if (exists) {
+                    orderErrors.value.id = 'Order ID already exists';
+                    hasError = true;
+                }
+            }
+
+            if (hasError) return;
 
             const item = selectedInventoryItem.value;
             const newQty = Number(orderForm.value.quantity) || 1;
@@ -471,7 +528,7 @@ createApp({
         };
 
         const deleteOrder = (id) => {
-            if (confirm(`Are you sure you want to delete order ${id}?`)) {
+            showConfirm('Delete Order', `Are you sure you want to delete order ${id}?`, () => {
                 const orderToDelete = orders.value.find(o => o.id === id);
                 if (orderToDelete) {
                     const qtyToRestore = Number(orderToDelete.quantity) || 1;
@@ -483,15 +540,38 @@ createApp({
                 orders.value = orders.value.filter(o => o.id !== id);
                 sales.value = sales.value.filter(s => s.orderId !== id);
                 showToast(`Order ${id} deleted, stock restored & sale record updated`);
-            }
+            });
         };
 
         // --- Inventory Actions ---
         const saveItem = () => {
-            if (!itemForm.value.itemName) {
-                showToast('Please enter item name', 'error');
-                return;
+            clearItemErrors();
+            let hasError = false;
+
+            if (!itemForm.value.itemName || itemForm.value.itemName.trim().length < 2) {
+                itemErrors.value.itemName = 'Item name must be at least 2 characters';
+                hasError = true;
             }
+
+            if (Number(itemForm.value.stock) < 0) {
+                itemErrors.value.stock = 'Stock cannot be negative';
+                hasError = true;
+            }
+
+            if (Number(itemForm.value.unitPrice) <= 0) {
+                itemErrors.value.unitPrice = 'Price must be greater than 0';
+                hasError = true;
+            }
+
+            if (!isEditingItem.value) {
+                const exists = inventory.value.some(i => i.id === itemForm.value.id);
+                if (exists) {
+                    itemErrors.value.id = 'Item ID already exists';
+                    hasError = true;
+                }
+            }
+
+            if (hasError) return;
 
             if (isEditingItem.value) {
                 const index = inventory.value.findIndex(i => i.id === itemForm.value.id);
@@ -505,18 +585,36 @@ createApp({
         };
 
         const deleteItem = (id) => {
-            if (confirm(`Delete item ${id} from inventory?`)) {
+            showConfirm('Delete Item', `Delete item ${id} from inventory?`, () => {
                 inventory.value = inventory.value.filter(i => i.id !== id);
                 showToast(`Item ${id} removed`);
-            }
+            });
         };
 
         // --- Sales Actions ---
         const saveSale = () => {
-            if (!saleForm.value.customerName || !saleForm.value.amount) {
-                showToast('Please fill out customer name and amount', 'error');
-                return;
+            clearSaleErrors();
+            let hasError = false;
+
+            if (!saleForm.value.customerName || saleForm.value.customerName.trim().length < 2) {
+                saleErrors.value.customerName = 'Customer name must be at least 2 characters';
+                hasError = true;
             }
+
+            if (!saleForm.value.amount || Number(saleForm.value.amount) <= 0) {
+                saleErrors.value.amount = 'Amount must be greater than 0';
+                hasError = true;
+            }
+
+            if (!isEditingSale.value) {
+                const exists = sales.value.some(s => s.id === saleForm.value.id);
+                if (exists) {
+                    saleErrors.value.id = 'Transaction ID already exists';
+                    hasError = true;
+                }
+            }
+
+            if (hasError) return;
 
             if (isEditingSale.value) {
                 const index = sales.value.findIndex(s => s.id === saleForm.value.id);
@@ -530,10 +628,10 @@ createApp({
         };
 
         const deleteSale = (id) => {
-            if (confirm(`Delete sale transaction ${id}?`)) {
+            showConfirm('Delete Sale', `Delete sale transaction ${id}?`, () => {
                 sales.value = sales.value.filter(s => s.id !== id);
                 showToast(`Sale transaction ${id} deleted`);
-            }
+            });
         };
 
         // --- Export Feature ---
@@ -684,6 +782,8 @@ createApp({
             toggleMobileMenu,
             currentUser,
             loginForm,
+            loginErrors,
+            clearLoginErrors,
             toast,
             showToast,
             orders,
@@ -695,6 +795,14 @@ createApp({
             inventoryCategoryFilter,
             salesSearch,
             salesDateFilter,
+            orderErrors,
+            itemErrors,
+            saleErrors,
+            clearOrderErrors,
+            clearItemErrors,
+            clearSaleErrors,
+            confirmModal,
+            showConfirm,
             isEditingOrder,
             orderForm,
             selectedInventoryItem,
