@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Recording - Blooms by Jen</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 Framework -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+<body>
+
+<div id="app">
+
+    <!-- GLOBAL NAVIGATION BAR -->
+    <nav class="navbar">
+        <div class="brand-logo" @click="navigateTo('landing')">
+            <div class="brand-logo-icon">
+                <i class="fa-solid fa-spa icon-white"></i>
+            </div>
+            <div>
+                <span class="brand-title">Blooms by Jen</span>
+            </div>
+        </div>
+
+        <button v-if="isLoggedIn" class="mobile-toggle-btn" @click="toggleMobileMenu" aria-label="Toggle Navigation Menu">
+            <i :class="isMobileMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
+        </button>
+
+        <ul v-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('dashboard')" href="dashboard.html">
+                    <i class="fa-solid fa-chart-line"></i> <span>Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('orders')" href="order.html">
+                    <i class="fa-solid fa-receipt"></i> <span>Orders</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('inventory')" href="inventory.html">
+                    <i class="fa-solid fa-boxes-stacked"></i> <span>Inventory</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link active" @click.prevent="navigateTo('sales')" href="sales.html">
+                    <i class="fa-solid fa-cash-register"></i> <span>Sales</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('reports')" href="report.html">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> <span>Reports</span>
+                </a>
+            </li>
+        </ul>
+
+        <div v-if="isLoggedIn" class="user-badge">
+            <i class="fa-solid fa-user-circle"></i>
+            <span>{{ currentUser.name }}</span>
+            <button class="btn btn-sm btn-outline ms-2" @click="handleLogout" title="Logout">
+                <i class="fa-solid fa-power-off"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- SALES SECTION -->
+    <main class="layout-container">
+        <div class="page-header">
+            <div class="page-title-group">
+                <h1>Sales Recording</h1>
+                <p class="page-subtitle">Log sales transactions and view transaction history.</p>
+            </div>
+            <div class="header-btn-group">
+                <button class="btn btn-secondary" @click="navigateTo('dashboard')">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+                </button>
+                <button class="btn btn-primary" @click="openModal('addEditSale')">
+                    <i class="fa-solid fa-plus"></i> Log Transaction
+                </button>
+            </div>
+        </div>
+
+        <div class="glass-card filter-bar">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" class="form-control" v-model="salesSearch" placeholder="Search by customer, payment method, or sale ID...">
+            </div>
+            <div class="user-badge sales-total-badge">
+                <span>Total Accumulated Sales: <strong>₱{{ totalSalesRevenue.toLocaleString() }}</strong></span>
+            </div>
+        </div>
+
+        <!-- Sales Table -->
+        <div class="glass-card">
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Transaction ID</th>
+                            <th>Order Ref</th>
+                            <th>Customer</th>
+                            <th>Amount Paid</th>
+                            <th>Payment Method</th>
+                            <th>Date</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="sale in filteredSales" :key="sale.id">
+                            <td class="cell-id">{{ sale.id }}</td>
+                            <td><span class="cell-order-ref">{{ sale.orderId }}</span></td>
+                            <td class="cell-semi-bold">{{ sale.customerName }}</td>
+                            <td class="cell-amount">₱{{ Number(sale.amount).toLocaleString() }}</td>
+                            <td>
+                                <span class="badge badge-sky">
+                                    <i class="fa-solid fa-credit-card"></i> {{ sale.paymentMethod }}
+                                </span>
+                            </td>
+                            <td>{{ sale.date }}</td>
+                            <td class="cell-muted">{{ sale.notes }}</td>
+                            <td>
+                                <div class="table-action-btns">
+                                    <button class="btn btn-sm btn-secondary" @click="openModal('addEditSale', sale)" title="Edit Sale">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" @click="deleteSale(sale.id)" title="Delete Sale">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr v-if="filteredSales.length === 0">
+                            <td colspan="8" class="table-empty-cell">
+                                No transaction logs match your search criteria.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- ADD / EDIT SALE MODAL -->
+    <div v-if="activeModal === 'addEditSale'" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>{{ isEditingSale ? 'Edit Transaction Log' : 'Log Sales Transaction' }}</h3>
+                <button class="btn btn-sm btn-secondary" @click="closeModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form @submit.prevent="saveSale">
+                <div class="modal-body form-grid">
+                    <div class="form-group">
+                        <label>Customer Name *</label>
+                        <input type="text" class="form-control" v-model="saleForm.customerName" placeholder="e.g. Kenneth Dela Cruz" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Order Reference ID</label>
+                        <input type="text" class="form-control" v-model="saleForm.orderId" placeholder="ORD-104">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Amount Paid (PHP) *</label>
+                        <input type="number" class="form-control" v-model="saleForm.amount" required min="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Payment Method</label>
+                        <select class="form-control" v-model="saleForm.paymentMethod">
+                            <option value="GCash">GCash</option>
+                            <option value="Cash">Cash Over-The-Counter</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Transaction Date</label>
+                        <input type="date" class="form-control" v-model="saleForm.date" required>
+                    </div>
+
+                    <div class="form-group form-full">
+                        <label>Transaction Notes</label>
+                        <input type="text" class="form-control" v-model="saleForm.notes" placeholder="e.g. Paid in full via GCash QR">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @click="closeModal">
+                        Back to Sales
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-floppy-disk"></i> Log Sale
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast-container" v-if="toast.show">
+        <div class="toast">
+            <i class="fa-solid fa-circle-info toast-icon"></i>
+            <span>{{ toast.message }}</span>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+        <p><strong>Blooms by Jen</strong> • Handmade Flower Shop Management System</p>
+    </footer>
+
+</div>
+
+<!-- Application Logic -->
+<script src="../JS/app.js"></script>
+</body>
+</html>

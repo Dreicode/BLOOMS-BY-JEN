@@ -4,7 +4,7 @@ Blooms by Jen: A Web-Based Handmade Flower Shop Management System with Order Tra
  
 
 Description: 
-floral management system for Blooms by Jen - Handmade Flower Shop
+floral management system for Blooms by Jen - Hsandmade Flower Shop
 
 The Features are:
 Order Management with custom bouquet tracking
@@ -17,6 +17,11 @@ Setup steps:
 step #1: Create Repository
 step #2: Add Collaborators or Members
 step #3:Use the Codespace
+
+Setup update: 
+step #1: I download git
+step #2: two connect the VSCode to github and git
+step #3: commit using source control
 
 TEAM Apex Coder 2.0
 Leader:Punzalan, Ronald Andrei G.  

@@ -1,5 +1,6 @@
-
-
+/* ==========================================================================
+   Blooms by Jen - Vue 3 Multi-Page System
+   ========================================================================== */
 
 const { createApp, ref, computed, onMounted, watch } = Vue;
 
@@ -12,8 +13,7 @@ const pageMap = {
     'orders': 'order.html',
     'inventory': 'inventory.html',
     'sales': 'sales.html',
-    'reports': 'report.html',
-    'register': 'register.html'
+    'reports': 'report.html'
 };
 
 const getScreenFromPath = () => {
@@ -25,18 +25,17 @@ const getScreenFromPath = () => {
     if (path.endsWith('inventory.html')) return 'inventory';
     if (path.endsWith('sales.html')) return 'sales';
     if (path.endsWith('report.html') || path.endsWith('reports.html')) return 'reports';
-    if (path.endsWith('register.html')) return 'register';
     return 'landing';
 };
 
 createApp({
     setup() {
-        
+        // --- Navigation & Auth State ---
         const activeScreen = getScreenFromPath();
         const currentScreen = ref(activeScreen);
         const activeModal = ref(null);
         
-        
+        // Session state persistence across pages
         const storedAuth = sessionStorage.getItem('blooms_logged_in') === 'true' || localStorage.getItem('blooms_logged_in') === 'true';
         const isLoggedIn = ref(storedAuth);
         const isMobileMenuOpen = ref(false);
@@ -44,7 +43,7 @@ createApp({
         const storedUser = sessionStorage.getItem('blooms_user') || localStorage.getItem('blooms_user');
         const currentUser = ref(storedUser ? JSON.parse(storedUser) : { name: 'Jenelyn Ortiz', role: 'Owner & Teacher', shop: 'Blooms by Jen' });
 
-        
+        // Login Form
         const loginForm = ref({
             email: 'jenelyn.ortiz@bloomsbyjen.com',
             password: 'password123',
@@ -52,7 +51,7 @@ createApp({
             error: ''
         });
 
-        
+        // Toast Notification
         const toast = ref({
             show: false,
             message: '',
@@ -66,7 +65,7 @@ createApp({
             }, 3000);
         };
 
-        
+        // --- Initial Fallback Repositories ---
         const initialOrders = [
             {
                 id: 'ORD-101',
@@ -142,7 +141,7 @@ createApp({
             { id: 'SAL-503', orderId: 'ORD-100', customerName: 'Andrea Gomez', amount: 1250, paymentMethod: 'GCash', date: '2026-08-08', notes: 'GCash online transfer' }
         ];
 
-       
+        // Load or initialize reactive state
         const orders = ref(JSON.parse(localStorage.getItem('blooms_orders')) || initialOrders);
         const inventory = ref(JSON.parse(localStorage.getItem('blooms_inventory')) || initialInventory);
         const sales = ref(JSON.parse(localStorage.getItem('blooms_sales')) || initialSales);
@@ -153,7 +152,7 @@ createApp({
         watch(sales, (newVal) => localStorage.setItem('blooms_sales', JSON.stringify(newVal)), { deep: true });
 
         onMounted(() => {
-          
+            // Protected screen route guard
             const protectedScreens = ['dashboard', 'orders', 'inventory', 'sales', 'reports'];
             if (protectedScreens.includes(currentScreen.value) && !isLoggedIn.value) {
                 showToast('Please log in to access the system dashboard', 'info');
@@ -162,7 +161,7 @@ createApp({
             }
         });
 
-     
+        // --- Filter & Search States ---
         const orderSearch = ref('');
         const orderStatusFilter = ref('All');
 
@@ -172,7 +171,7 @@ createApp({
         const salesSearch = ref('');
         const salesDateFilter = ref('All');
 
-        
+        // --- Form Models for Modals ---
         const isEditingOrder = ref(false);
         const originalOrderState = ref(null);
         const orderForm = ref({
@@ -208,7 +207,7 @@ createApp({
             notes: 'Handcrafted bouquet transaction'
         });
 
-        
+        // --- Page Navigation Function ---
         const navigateTo = (screen) => {
             isMobileMenuOpen.value = false;
             const protectedScreens = ['dashboard', 'orders', 'inventory', 'sales', 'reports'];
@@ -235,7 +234,7 @@ createApp({
             isMobileMenuOpen.value = !isMobileMenuOpen.value;
         };
 
-        
+        // --- Auth Logic ---
         const handleLogin = () => {
             if (!loginForm.value.email || !loginForm.value.password) {
                 loginForm.value.error = 'Please enter both email and password.';
@@ -272,7 +271,7 @@ createApp({
             showToast('Demo owner credentials populated');
         };
 
-        
+        // --- Modals Controller ---
         const openModal = (modalName, data = null) => {
             isMobileMenuOpen.value = false;
             activeModal.value = modalName;
@@ -487,7 +486,7 @@ createApp({
             }
         };
 
-        
+        // --- Inventory Actions ---
         const saveItem = () => {
             if (!itemForm.value.itemName) {
                 showToast('Please enter item name', 'error');
@@ -512,7 +511,7 @@ createApp({
             }
         };
 
-        
+        // --- Sales Actions ---
         const saveSale = () => {
             if (!saleForm.value.customerName || !saleForm.value.amount) {
                 showToast('Please fill out customer name and amount', 'error');
@@ -537,7 +536,7 @@ createApp({
             }
         };
 
-        
+        // --- Export Feature ---
         const exportReportCSV = () => {
             let csvContent = "data:text/csv;charset=utf-8,";
             csvContent += "Blooms by Jen - Sales and Inventory Summary Report\n\n";
@@ -565,7 +564,7 @@ createApp({
             showToast("Report exported successfully as CSV!");
         };
 
-        
+        // --- Calculated Metrics ---
         const totalOrdersCount = computed(() => orders.value.length);
         const pendingOrdersCount = computed(() => orders.value.filter(o => o.status === 'Pending' || o.status === 'In Progress').length);
         const lowStockItems = computed(() => inventory.value.filter(i => Number(i.stock) < 10));
@@ -578,7 +577,7 @@ createApp({
                 .reduce((sum, s) => sum + Number(s.amount), 0);
         });
 
-       
+        // Dynamic Reports Metrics
         const paymentMethodBreakdown = computed(() => {
             const totals = {};
             const counts = {};
@@ -648,7 +647,7 @@ createApp({
             return categories.slice(0, 3);
         });
 
-        
+        // Computed Lists
         const filteredOrders = computed(() => {
             return orders.value.filter(o => {
                 const matchesSearch = o.customerName.toLowerCase().includes(orderSearch.value.toLowerCase()) ||
