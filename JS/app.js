@@ -11,7 +11,7 @@ const getCurrentDir = () => {
 };
 
 // Set to false for production to hide demo credentials from the login form
-const IS_DEMO = true;
+const IS_DEMO = false;
 
 // Safe storage helpers (prevent crashes when storage is blocked or full)
 const safeGetItem = (storage, key) => {
