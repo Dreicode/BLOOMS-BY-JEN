@@ -122,7 +122,7 @@
                         <div v-if="loginErrors.password" class="field-error">{{ loginErrors.password }}</div>
                     </div>
 
-                    <div class="login-demo-wrapper">
+                    <div class="login-demo-wrapper" v-if="IS_DEMO">
                         <span class="demo-fill-btn" @click="fillDemoCredentials">
                             <i class="fa-solid fa-key"></i> Auto-fill Demo Credentials
                         </span>

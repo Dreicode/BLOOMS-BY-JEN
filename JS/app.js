@@ -4,7 +4,47 @@
 
 const { createApp, ref, computed, onMounted, watch } = Vue;
 
-const isInPagesDir = window.location.pathname.toLowerCase().includes('/pages/') || window.location.pathname.toLowerCase().includes('\\pages\\');
+const getCurrentDir = () => {
+    const path = window.location.pathname;
+    const lastSlash = path.lastIndexOf('/');
+    return lastSlash > 0 ? path.substring(0, lastSlash + 1) : '/';
+};
+
+// Set to false for production to hide demo credentials from the login form
+const IS_DEMO = true;
+
+// Safe storage helpers (prevent crashes when storage is blocked or full)
+const safeGetItem = (storage, key) => {
+    try {
+        return storage.getItem(key);
+    } catch (e) {
+        return null;
+    }
+};
+
+const safeSetItem = (storage, key, value) => {
+    try {
+        storage.setItem(key, value);
+        return true;
+    } catch (e) {
+        return false;
+    }
+};
+
+const safeRemoveItem = (storage, key) => {
+    try {
+        storage.removeItem(key);
+    } catch (e) {}
+};
+
+const safeGetJSON = (storage, key, fallback = null) => {
+    try {
+        const raw = storage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+    } catch (e) {
+        return fallback;
+    }
+};
 
 const pageMap = {
     'landing': 'landingpage.html',
@@ -36,17 +76,18 @@ createApp({
         const activeModal = ref(null);
         
         // Session state persistence across pages
-        const storedAuth = sessionStorage.getItem('blooms_logged_in') === 'true' || localStorage.getItem('blooms_logged_in') === 'true';
+        const storedAuth = safeGetItem(sessionStorage, 'blooms_logged_in') === 'true' || safeGetItem(localStorage, 'blooms_logged_in') === 'true';
         const isLoggedIn = ref(storedAuth);
         const isMobileMenuOpen = ref(false);
 
-        const storedUser = sessionStorage.getItem('blooms_user') || localStorage.getItem('blooms_user');
-        const currentUser = ref(storedUser ? JSON.parse(storedUser) : { name: 'Jenelyn Ortiz', role: 'Owner & Teacher', shop: 'Blooms by Jen' });
+        const defaultUser = { name: 'Jenelyn Ortiz', role: 'Owner & Teacher', shop: 'Blooms by Jen' };
+        const storedUser = safeGetJSON(sessionStorage, 'blooms_user') || safeGetJSON(localStorage, 'blooms_user');
+        const currentUser = ref(storedUser || defaultUser);
 
         // Login Form
         const loginForm = ref({
-            email: 'jenelyn.ortiz@bloomsbyjen.com',
-            password: 'password123',
+            email: IS_DEMO ? 'jenelyn.ortiz@bloomsbyjen.com' : '',
+            password: IS_DEMO ? 'password123' : '',
             showPassword: false,
             error: ''
         });
@@ -142,14 +183,14 @@ createApp({
         ];
 
         // Load or initialize reactive state
-        const orders = ref(JSON.parse(localStorage.getItem('blooms_orders')) || initialOrders);
-        const inventory = ref(JSON.parse(localStorage.getItem('blooms_inventory')) || initialInventory);
-        const sales = ref(JSON.parse(localStorage.getItem('blooms_sales')) || initialSales);
+        const orders = ref(safeGetJSON(localStorage, 'blooms_orders', initialOrders));
+        const inventory = ref(safeGetJSON(localStorage, 'blooms_inventory', initialInventory));
+        const sales = ref(safeGetJSON(localStorage, 'blooms_sales', initialSales));
 
         // Sync with LocalStorage as backup
-        watch(orders, (newVal) => localStorage.setItem('blooms_orders', JSON.stringify(newVal)), { deep: true });
-        watch(inventory, (newVal) => localStorage.setItem('blooms_inventory', JSON.stringify(newVal)), { deep: true });
-        watch(sales, (newVal) => localStorage.setItem('blooms_sales', JSON.stringify(newVal)), { deep: true });
+        watch(orders, (newVal) => safeSetItem(localStorage, 'blooms_orders', JSON.stringify(newVal)), { deep: true });
+        watch(inventory, (newVal) => safeSetItem(localStorage, 'blooms_inventory', JSON.stringify(newVal)), { deep: true });
+        watch(sales, (newVal) => safeSetItem(localStorage, 'blooms_sales', JSON.stringify(newVal)), { deep: true });
 
         onMounted(() => {
             // Hide loading spinner
@@ -160,8 +201,7 @@ createApp({
             const protectedScreens = ['dashboard', 'orders', 'inventory', 'sales', 'reports'];
             if (protectedScreens.includes(currentScreen.value) && !isLoggedIn.value) {
                 showToast('Please log in to access the system dashboard', 'info');
-                const targetPage = isInPagesDir ? 'login.html' : 'Pages/login.html';
-                window.location.href = targetPage;
+                window.location.href = getCurrentDir() + 'login.html';
             }
         });
 
@@ -241,13 +281,12 @@ createApp({
             
             if (protectedScreens.includes(screen) && !isLoggedIn.value) {
                 showToast('Please log in to access the system dashboard', 'info');
-                const targetLogin = isInPagesDir ? 'login.html' : 'Pages/login.html';
-                window.location.href = targetLogin;
+                window.location.href = getCurrentDir() + 'login.html';
                 return;
             }
 
             const pageFile = pageMap[screen] || 'landingpage.html';
-            const targetUrl = isInPagesDir ? pageFile : `Pages/${pageFile}`;
+            const targetUrl = getCurrentDir() + pageFile;
 
             if (getScreenFromPath() === screen) {
                 currentScreen.value = screen;
@@ -284,8 +323,8 @@ createApp({
             if ((loginForm.value.email === 'jenelyn.ortiz@bloomsbyjen.com' || loginForm.value.email === 'demo@bloomsbyjen.com' || loginForm.value.email === 'admin@bloomsbyjen.com') &&
                 (loginForm.value.password === 'password123' || loginForm.value.password === 'teacherJen2026' || loginForm.value.password === 'admin123')) {
                 isLoggedIn.value = true;
-                sessionStorage.setItem('blooms_logged_in', 'true');
-                sessionStorage.setItem('blooms_user', JSON.stringify(currentUser.value));
+                safeSetItem(sessionStorage, 'blooms_logged_in', 'true');
+                safeSetItem(sessionStorage, 'blooms_user', JSON.stringify(currentUser.value));
                 showToast('Welcome back, Ms. Jenelyn Ortiz!');
                 navigateTo('dashboard');
             } else {
@@ -296,10 +335,10 @@ createApp({
         const handleLogout = () => {
             isLoggedIn.value = false;
             isMobileMenuOpen.value = false;
-            sessionStorage.removeItem('blooms_logged_in');
-            sessionStorage.removeItem('blooms_user');
-            localStorage.removeItem('blooms_logged_in');
-            localStorage.removeItem('blooms_user');
+            safeRemoveItem(sessionStorage, 'blooms_logged_in');
+            safeRemoveItem(sessionStorage, 'blooms_user');
+            safeRemoveItem(localStorage, 'blooms_logged_in');
+            safeRemoveItem(localStorage, 'blooms_user');
             showToast('Logged out successfully.');
             navigateTo('landing');
         };
@@ -817,6 +856,7 @@ createApp({
             handleLogin,
             handleLogout,
             fillDemoCredentials,
+            IS_DEMO,
             openModal,
             closeModal,
             saveOrder,
