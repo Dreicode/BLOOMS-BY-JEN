@@ -1,33 +1,74 @@
-# BLOOMS-BY-JEN
-Title:
-Blooms by Jen: A Web-Based Handmade Flower Shop Management System with Order Tracking and Bouquet Customization
- 
+# BLOOMS BY JEN
 
-Description: 
-floral management system for Blooms by Jen - Hsandmade Flower Shop
+**Project Title:** Blooms by Jen: A Web-Based Handmade Flower Shop Management System with Order Tracking and Bouquet Customization
 
-The Features are:
-Order Management with custom bouquet tracking
-Real-time Inventory Monitoring with low-stock alerts
-Sales Recording with GCash, Cash,and Reports with CSV export
-Mobile-responsive design 
+## Description
 
+A frontend prototype floral management system for Blooms by Jen, a handmade flower shop. The system digitalizes order management with custom bouquet tracking, real-time inventory monitoring with low-stock alerts, sales recording, and business reports.
 
-Setup steps:
-step #1: Create Repository
-step #2: Add Collaborators or Members
-step #3:Use the Codespace
+## Features
 
-Setup update: 
-step #1: I download git
-step #2: two connect the VSCode to github and git
-step #3: commit using source control
+- Order Management with custom bouquet tracking (wrapping, ribbon, and personalized message)
+- Real-time Inventory Monitoring with low-stock and out-of-stock alerts
+- Sales Recording with GCash and Cash payment methods
+- Reports & Analytics with CSV export
+- Owner login / user authentication
+- Mobile-responsive design
 
-TEAM Apex Coder 2.0
-Leader:Punzalan, Ronald Andrei G.  
-Members: 
-Calim, Lovely Rose 
-Canoza, Ryan James 
-Cantoba, Johncyril 
-Leo, Benjo 
-Ortiz, Rodel
+## Technologies Used
+
+- HTML5, CSS3, JavaScript (Vanilla JS)
+- Vue.js 3 (CDN)
+- Bootstrap-like utility styling / custom Glassmorphism theme
+- Google Fonts (Playfair Display, Plus Jakarta Sans)
+- Font Awesome 6 Icons
+
+## Live Demo
+
+- Deployed Live Link: https://blooms-by-jen.infinityfree.me/
+- Deployment Platform: InfinityFree
+- Repository: https://github.com/Dreicode/BLOOMS-BY-JEN
+
+## Setup and Installation
+
+### Option A: Run Locally (Recommended)
+
+1. Download or clone this repository.
+2. Open the project folder.
+3. Open `index.html` in your browser, OR use a local server (e.g., Live Server extension in VS Code) to avoid CORS issues with the Vue CDN.
+
+### Option B: Deploy to a Hosting Platform
+
+1. Upload all project files keeping the folder structure:
+   - `index.html` (root)
+   - `CSS/`, `JS/`, `Pages/`
+2. Open the deployed live link in a browser.
+
+## Project Structure
+
+```
+BLOOMS-BY-JEN/
+├── index.html            (redirects to Pages/landingpage.html)
+├── CSS/style.css        (global styles)
+├── JS/app.js            (all Vue 3 application logic)
+└── Pages/               (all major screens)
+    ├── landingpage.html
+    ├── login.html
+    ├── dashboard.html
+    ├── order.html
+    ├── inventory.html
+    ├── sales.html
+    └── report.html
+```
+
+## Team Apex Coder 2.0
+
+**Project Manager / Leader:** Punzalan, Ronald Andrei G.
+
+| Members | Role |
+|---|---|
+| Calim, Lovely Rose | Team Member |
+| Canoza, Ryan James | Team Member |
+| Cantoba, Johncyril | Team Member |
+| Leo, Benjo | Team Member |
+| Ortiz, Rodel | Team Member |
