@@ -4653,3 +4653,8 @@ body.dark-mode #blooms-page-loader {
     text-align: center;
     line-height: 1.25;
 }
+
+/* Demo account shortcut on the login card */
+.login-demo-btn {
+    margin-top: 0.75rem;
+}
