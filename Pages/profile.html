@@ -1,0 +1,416 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Blooms by Jen</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 Framework -->
+    <script defer src="../JS/vue.global.prod.js"></script>
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+<body>
+
+<div id="app" v-cloak>
+
+    <!-- CUSTOMER NAVIGATION BAR -->
+    <nav class="navbar customer-navbar">
+        <div class="brand-logo">
+            <div class="brand-logo-icon">
+                <i class="fa-solid fa-spa icon-white"></i>
+            </div>
+            <div>
+                <span class="brand-title">Blooms by Jen</span>
+            </div>
+        </div>
+
+        <button class="mobile-toggle-btn" @click="toggleCustomerMenu" aria-label="Toggle Menu">
+            <i :class="isCustomerMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
+        </button>
+
+        <ul class="nav-links customer-nav-links" :class="{ 'mobile-active': isCustomerMenuOpen }">
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('shop')" href="shop.html">
+                    <i class="fa-solid fa-store"></i> <span>Shop</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('customize')" href="customize.html">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Customize</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('cart')" href="cart.html">
+                    <i class="fa-solid fa-cart-shopping"></i> <span>Cart</span>
+                    <span class="cart-badge" :class="{ 'cart-badge-pulse': cartPulse }" v-if="cartCount > 0">{{ cartCount }}</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="navigateTo('myorders')" href="myorders.html">
+                    <i class="fa-solid fa-receipt"></i> <span>My Orders</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link active" @click.prevent="navigateTo('profile')" href="profile.html">
+                    <i class="fa-solid fa-user"></i> <span>Profile</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn" class="nav-notification-item">
+                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="handleLogout" href="#">
+                    <i class="fa-solid fa-power-off"></i> <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- NOTIFICATION DROPDOWN -->
+    <div class="notification-panel" v-if="notificationsOpen" @click.self="notificationsOpen = false">
+        <div class="notification-panel-header">
+            <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+            <button class="notification-close" @click="notificationsOpen = false"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="notification-panel-body" v-if="visibleNotifications.length > 0">
+            <div class="notification-item" v-for="notif in visibleNotifications.slice(0, 10)" :key="notif.id"
+                role="button" tabindex="0" @click="openNotification(notif)" @keydown.enter="openNotification(notif)">
+                <div class="notification-icon" :class="'notif-' + notif.type">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+                <div class="notification-content">
+                    <p>{{ notif.message }}</p>
+                    <span class="notification-time">{{ new Date(notif.createdAt).toLocaleString() }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="notification-empty" v-else>
+            <i class="fa-solid fa-bell-slash"></i>
+            <p>No notifications yet</p>
+        </div>
+    </div>
+
+    <!-- PROFILE SECTION -->
+    <main class="layout-container">
+
+        <div class="page-header">
+            <div class="page-title-group">
+                <h1>My Profile</h1>
+                <p class="page-subtitle">Review and update your account details.</p>
+            </div>
+            <div class="header-btn-group">
+                <button class="btn btn-secondary" @click="navigateTo('shop')">
+                    <i class="fa-solid fa-store"></i> Back to Shop
+                </button>
+            </div>
+        </div>
+
+        <div v-if="profileLoaded">
+
+            <!-- Stored automatically (no input) -->
+            <div class="glass-card profile-card">
+                <h3 class="profile-section-title"><i class="fa-solid fa-id-card"></i> Account Information</h3>
+                <p class="profile-section-sub">These details are stored automatically from your registration.</p>
+                <div class="profile-meta-grid">
+                    <div class="profile-meta-item">
+                        <span class="profile-meta-label">Full Name (computed)</span>
+                        <span class="profile-meta-value">{{ profileFullname || '—' }}</span>
+                    </div>
+                    <div class="profile-meta-item">
+                        <span class="profile-meta-label">Role</span>
+                        <span class="profile-meta-value">{{ profileRoleLabel }}</span>
+                    </div>
+                    <div class="profile-meta-item">
+                        <span class="profile-meta-label">Country</span>
+                        <span class="profile-meta-value">{{ profileMeta.country }}</span>
+                    </div>
+                    <div class="profile-meta-item">
+                        <span class="profile-meta-label">Member Since</span>
+                        <span class="profile-meta-value">{{ profileMeta.created_at ? new Date(profileMeta.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : '—' }}</span>
+                    </div>
+                    <div class="profile-meta-item">
+                        <span class="profile-meta-label">Account Status</span>
+                        <span class="profile-meta-value">
+                            <span v-if="profileMeta.isVerified" class="profile-status-verified">
+                                <i class="fa-solid fa-circle-check"></i> Verified
+                            </span>
+                            <span v-else class="profile-status-unverified">
+                                <i class="fa-solid fa-circle-exclamation"></i> Unverified
+                            </span>
+                        </span>
+                    </div>
+                    <div class="profile-meta-item">
+                        <span class="profile-meta-label">User ID</span>
+                        <span class="profile-meta-value">{{ profileMeta.id || '—' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Registration details (editable) -->
+            <div class="glass-card profile-card">
+                <h3 class="profile-section-title"><i class="fa-solid fa-pen-to-square"></i> Personal &amp; Address Details</h3>
+                <p class="profile-section-sub">Everything you entered during registration — update it here.</p>
+
+                <div role="alert" v-if="profileErrors.general" class="alert-box alert-error">
+                    <i class="fa-solid fa-circle-exclamation alert-icon-lg"></i>
+                    {{ profileErrors.general }}
+                </div>
+
+                <form @submit.prevent="saveProfile" novalidate>
+                    <!-- First / Last Name -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="profFirstName">First Name *</label>
+                            <input type="text" id="profFirstName" class="form-control"
+                                :class="{ 'input-error': profileErrors.firstName }"
+                                v-model="profileForm.firstName"
+                                @input="clearProfileError('firstName')"
+                                placeholder="e.g. Maria"
+                                autocomplete="given-name">
+                            <div role="alert" v-if="profileErrors.firstName" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ profileErrors.firstName }}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="profLastName">Last Name *</label>
+                            <input type="text" id="profLastName" class="form-control"
+                                :class="{ 'input-error': profileErrors.lastName }"
+                                v-model="profileForm.lastName"
+                                @input="clearProfileError('lastName')"
+                                placeholder="e.g. Santos"
+                                autocomplete="family-name">
+                            <div role="alert" v-if="profileErrors.lastName" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ profileErrors.lastName }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="form-group">
+                        <label for="profEmail">Email Address *</label>
+                        <input type="email" id="profEmail" class="form-control"
+                            :class="{ 'input-error': profileErrors.email }"
+                            v-model="profileForm.email"
+                            @input="clearProfileError('email')"
+                            placeholder="e.g. maria@example.com"
+                            autocomplete="email">
+                        <div role="alert" v-if="profileErrors.email" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ profileErrors.email }}
+                        </div>
+                    </div>
+
+                    <!-- Phone Number -->
+                    <div class="form-group">
+                        <label for="profPhone">Phone Number *</label>
+                        <input type="tel" id="profPhone" class="form-control" maxlength="11"
+                            :class="{ 'input-error': profileErrors.phone }"
+                            v-model="profileForm.phone"
+                            @input="clearProfileError('phone')"
+                            placeholder="09XXXXXXXXX"
+                            autocomplete="tel">
+                        <div role="alert" v-if="profileErrors.phone" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ profileErrors.phone }}
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="profStreet">Street Address *</label>
+                            <input type="text" id="profStreet" class="form-control"
+                                :class="{ 'input-error': profileErrors.street }"
+                                v-model="profileForm.street"
+                                @input="clearProfileError('street')"
+                                placeholder="e.g. 123 Rizal Street"
+                                autocomplete="address-line1">
+                            <div role="alert" v-if="profileErrors.street" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ profileErrors.street }}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="profApartment">Apartment / Suite <span class="label-optional">(optional)</span></label>
+                            <input type="text" id="profApartment" class="form-control"
+                                v-model="profileForm.apartment"
+                                placeholder="e.g. Unit 4B"
+                                autocomplete="address-line2">
+                        </div>
+                    </div>
+
+                    <!-- State/Province + City/Municipality (autocomplete, filtered) -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="profProvince">State / Province *</label>
+                            <div class="autocomplete-wrapper">
+                                <input type="text" id="profProvince" class="form-control" autocomplete="off"
+                                    role="combobox" aria-autocomplete="list" aria-haspopup="listbox"
+                                    :aria-expanded="profileProvinceMenuOpen ? 'true' : 'false'"
+                                    :class="{ 'input-error': profileErrors.province }"
+                                    v-model="profileForm.province"
+                                    @input="onProfileProvinceInput"
+                                    @focus="profileProvinceMenuOpen = true"
+                                    @blur="profileProvinceMenuOpen = false"
+                                    @keydown="onProfileAutocompleteKeydown($event, 'province')"
+                                    placeholder="Type to search province">
+                                <div class="autocomplete-panel" v-if="profileProvinceMenuOpen" role="listbox">
+                                    <ul class="autocomplete-menu" v-if="profileProvinceSuggestions.length">
+                                        <li v-for="(prov, i) in profileProvinceSuggestions" :key="prov" role="option"
+                                            :class="{ 'autocomplete-active': i === profileProvinceHighlight }"
+                                            @mousedown.prevent @click="selectProfileProvince(prov)"
+                                            @mouseenter="profileProvinceHighlight = i">{{ prov }}</li>
+                                    </ul>
+                                    <div class="autocomplete-empty" v-else @mousedown.prevent>
+                                        <i class="fa-solid fa-magnifying-glass"></i> No matching province
+                                    </div>
+                                </div>
+                            </div>
+                            <div role="alert" v-if="profileErrors.province" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ profileErrors.province }}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="profCity">City / Municipality *</label>
+                            <div class="autocomplete-wrapper">
+                                <input type="text" id="profCity" class="form-control" autocomplete="off"
+                                    role="combobox" aria-autocomplete="list" aria-haspopup="listbox"
+                                    :aria-expanded="profileCityMenuOpen ? 'true' : 'false'"
+                                    :class="{ 'input-error': profileErrors.city }"
+                                    v-model="profileForm.city"
+                                    @input="onProfileCityInput"
+                                    @focus="profileCityMenuOpen = profileIsProvinceValid"
+                                    @blur="profileCityMenuOpen = false"
+                                    @keydown="onProfileAutocompleteKeydown($event, 'city')"
+                                    :placeholder="profileIsProvinceValid ? 'Type to search city' : 'Select a State/Province first'"
+                                    :disabled="!profileIsProvinceValid">
+                                <div class="autocomplete-panel" v-if="profileCityMenuOpen" role="listbox">
+                                    <ul class="autocomplete-menu" v-if="profileCitySuggestions.length">
+                                        <li v-for="(city, i) in profileCitySuggestions" :key="city" role="option"
+                                            :class="{ 'autocomplete-active': i === profileCityHighlight }"
+                                            @mousedown.prevent @click="selectProfileCity(city)"
+                                            @mouseenter="profileCityHighlight = i">{{ city }}</li>
+                                    </ul>
+                                    <div class="autocomplete-empty" v-else @mousedown.prevent>
+                                        <i class="fa-solid fa-magnifying-glass"></i> No matching city
+                                    </div>
+                                </div>
+                            </div>
+                            <div role="alert" v-if="profileErrors.city" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ profileErrors.city }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" :disabled="profileSaving">
+                            <i class="fa-solid fa-spinner fa-spin" v-if="profileSaving"></i>
+                            <i class="fa-solid fa-floppy-disk" v-else></i>
+                            {{ profileSaving ? 'Saving...' : 'Save Changes' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Change Password -->
+            <div class="glass-card profile-card">
+                <h3 class="profile-section-title"><i class="fa-solid fa-lock"></i> Change Password</h3>
+                <p class="profile-section-sub">Passwords are never displayed here — enter a new one to update it.</p>
+
+                <div role="alert" v-if="pwChangeErrors.general" class="alert-box alert-error">
+                    <i class="fa-solid fa-circle-exclamation alert-icon-lg"></i>
+                    {{ pwChangeErrors.general }}
+                </div>
+
+                <form @submit.prevent="changePassword" novalidate>
+                    <div class="form-group">
+                        <label for="pwCurrent">Current Password *</label>
+                        <input type="password" id="pwCurrent" class="form-control"
+                            :class="{ 'input-error': pwChangeErrors.current }"
+                            v-model="pwChangeForm.current"
+                            @input="clearPwChangeError('current')"
+                            placeholder="Enter your current password"
+                            autocomplete="current-password">
+                        <div role="alert" v-if="pwChangeErrors.current" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ pwChangeErrors.current }}
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="pwNew">New Password *</label>
+                            <input type="password" id="pwNew" class="form-control"
+                                :class="{ 'input-error': pwChangeErrors.next }"
+                                v-model="pwChangeForm.next"
+                                @input="clearPwChangeError('next')"
+                                placeholder="At least 6 characters"
+                                autocomplete="new-password">
+                            <div role="alert" v-if="pwChangeErrors.next" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ pwChangeErrors.next }}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="pwConfirm">Confirm New Password *</label>
+                            <input type="password" id="pwConfirm" class="form-control"
+                                :class="{ 'input-error': pwChangeErrors.confirm }"
+                                v-model="pwChangeForm.confirm"
+                                @input="clearPwChangeError('confirm')"
+                                placeholder="Repeat the new password"
+                                autocomplete="new-password">
+                            <div role="alert" v-if="pwChangeErrors.confirm" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ pwChangeErrors.confirm }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" :disabled="pwChanging">
+                            <i class="fa-solid fa-spinner fa-spin" v-if="pwChanging"></i>
+                            <i class="fa-solid fa-key" v-else></i>
+                            {{ pwChanging ? 'Updating...' : 'Update Password' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- Profile could not be loaded -->
+        <div class="glass-card shop-empty" v-else>
+            <i class="fa-solid fa-user-lock shop-empty-icon"></i>
+            <h3>Profile unavailable</h3>
+            <p>Please log in to view your profile.</p>
+            <button class="btn btn-primary" @click="navigateTo('login')" style="margin-top: 1rem;">
+                <i class="fa-solid fa-right-to-bracket"></i> Go to Login
+            </button>
+        </div>
+
+    </main>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast-container" v-if="toast.show">
+        <div class="toast" :class="'toast-' + toast.type" role="alert">
+            <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
+            <span>{{ toast.message }}</span>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+        <p><strong>Blooms by Jen</strong> • Handmade Flower Shop Management System</p>
+    </footer>
+
+</div>
+
+<!-- PH location data (provinces & cities) + Application Logic -->
+<script defer src="../JS/ph-locations.js"></script>
+<script defer src="../JS/app.js"></script>
+</body>
+</html>

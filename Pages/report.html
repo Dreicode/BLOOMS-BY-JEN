@@ -1,9 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Business Reports - Blooms by Jen</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,7 +12,7 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Vue 3 Framework -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script defer src="../JS/vue.global.prod.js"></script>
     <!-- Custom Style -->
     <link rel="stylesheet" href="../CSS/style.css">
 </head>
@@ -24,11 +25,11 @@
 </div>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
-<div id="app">
+<div id="app" v-cloak>
 
     <!-- GLOBAL NAVIGATION BAR -->
     <nav class="navbar">
-        <div class="brand-logo" @click="navigateTo('landing')">
+        <div class="brand-logo">
             <div class="brand-logo-icon">
                 <i class="fa-solid fa-spa icon-white"></i>
             </div>
@@ -37,11 +38,11 @@
             </div>
         </div>
 
-        <button v-if="isLoggedIn" class="mobile-toggle-btn" @click="toggleMobileMenu" aria-label="Toggle Navigation Menu">
+        <button v-if="isAdminRole" class="mobile-toggle-btn" @click="toggleMobileMenu" aria-label="Toggle Navigation Menu">
             <i :class="isMobileMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
         </button>
 
-        <ul v-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
+        <ul v-if="isAdminRole" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
             <li>
                 <a class="nav-link" @click.prevent="navigateTo('dashboard')" href="dashboard.html">
                     <i class="fa-solid fa-chart-line"></i> <span>Dashboard</span>
@@ -67,6 +68,12 @@
                     <i class="fa-solid fa-file-invoice-dollar"></i> <span>Reports</span>
                 </a>
             </li>
+            <li class="nav-notification-item">
+                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+                </a>
+            </li>
         </ul>
 
         <div v-if="isLoggedIn" class="user-badge">
@@ -78,6 +85,30 @@
         </div>
     </nav>
 
+    <!-- NOTIFICATION DROPDOWN -->
+    <div class="notification-panel" v-if="notificationsOpen" @click.self="notificationsOpen = false">
+        <div class="notification-panel-header">
+            <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+            <button class="notification-close" @click="notificationsOpen = false"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="notification-panel-body" v-if="visibleNotifications.length > 0">
+            <div class="notification-item" v-for="notif in visibleNotifications.slice(0, 10)" :key="notif.id"
+                role="button" tabindex="0" @click="openNotification(notif)" @keydown.enter="openNotification(notif)">
+                <div class="notification-icon" :class="'notif-' + notif.type">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+                <div class="notification-content">
+                    <p>{{ notif.message }}</p>
+                    <span class="notification-time">{{ new Date(notif.createdAt).toLocaleString() }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="notification-empty" v-else>
+            <i class="fa-solid fa-bell-slash"></i>
+            <p>No notifications yet</p>
+        </div>
+    </div>
+
     <!-- REPORTS SECTION -->
     <main class="layout-container">
         <div class="page-header">
@@ -86,9 +117,6 @@
                 <p class="page-subtitle">Comprehensive summary of sales performance and flower inventory metrics.</p>
             </div>
             <div class="header-btn-group">
-                <button class="btn btn-secondary" @click="navigateTo('dashboard')">
-                    <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
-                </button>
                 <button class="btn btn-primary" @click="openModal('exportReport')">
                     <i class="fa-solid fa-file-export"></i> Export Report
                 </button>
@@ -193,8 +221,8 @@
 
     <!-- TOAST NOTIFICATION -->
     <div class="toast-container" v-if="toast.show">
-        <div class="toast">
-            <i class="fa-solid fa-circle-info toast-icon"></i>
+        <div class="toast" :class="'toast-' + toast.type" role="alert">
+            <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
             <span>{{ toast.message }}</span>
         </div>
     </div>
@@ -207,6 +235,6 @@
 </div>
 
 <!-- Application Logic -->
-<script src="../JS/app.js"></script>
+<script defer src="../JS/app.js"></script>
 </body>
 </html>

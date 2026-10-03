@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,10 +11,12 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Vue 3 Framework -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script defer src="../JS/vue.global.prod.js"></script>
     <!-- Custom Style -->
     <link rel="stylesheet" href="../CSS/style.css">
-</head>
+
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    </head>
 <body>
     
 <div id="app-loading" style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;">
@@ -25,11 +27,11 @@
 </div>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
-<div id="app">
+<div id="app" v-cloak>
 
     <!-- GLOBAL NAVIGATION BAR -->
     <nav class="navbar">
-        <div class="brand-logo" @click="navigateTo('landing')">
+        <div class="brand-logo">
             <div class="brand-logo-icon">
                 <i class="fa-solid fa-spa icon-white"></i>
             </div>
@@ -38,11 +40,11 @@
             </div>
         </div>
 
-        <button v-if="isLoggedIn" class="mobile-toggle-btn" @click="toggleMobileMenu" aria-label="Toggle Navigation Menu">
+        <button v-if="isAdminRole" class="mobile-toggle-btn" @click="toggleMobileMenu" aria-label="Toggle Navigation Menu">
             <i :class="isMobileMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
         </button>
 
-        <ul v-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
+        <ul v-if="isAdminRole" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
             <li>
                 <a class="nav-link" @click.prevent="navigateTo('dashboard')" href="dashboard.html">
                     <i class="fa-solid fa-chart-line"></i> <span>Dashboard</span>
@@ -68,6 +70,12 @@
                     <i class="fa-solid fa-file-invoice-dollar"></i> <span>Reports</span>
                 </a>
             </li>
+            <li class="nav-notification-item">
+                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+                </a>
+            </li>
         </ul>
 
         <div v-if="isLoggedIn" class="user-badge">
@@ -79,6 +87,30 @@
         </div>
     </nav>
 
+    <!-- NOTIFICATION DROPDOWN -->
+    <div class="notification-panel" v-if="notificationsOpen" @click.self="notificationsOpen = false">
+        <div class="notification-panel-header">
+            <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+            <button class="notification-close" @click="notificationsOpen = false"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="notification-panel-body" v-if="visibleNotifications.length > 0">
+            <div class="notification-item" v-for="notif in visibleNotifications.slice(0, 10)" :key="notif.id"
+                role="button" tabindex="0" @click="openNotification(notif)" @keydown.enter="openNotification(notif)">
+                <div class="notification-icon" :class="'notif-' + notif.type">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+                <div class="notification-content">
+                    <p>{{ notif.message }}</p>
+                    <span class="notification-time">{{ new Date(notif.createdAt).toLocaleString() }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="notification-empty" v-else>
+            <i class="fa-solid fa-bell-slash"></i>
+            <p>No notifications yet</p>
+        </div>
+    </div>
+
     <!-- INVENTORY SECTION -->
     <main class="layout-container">
         <div class="page-header">
@@ -87,11 +119,8 @@
                 <p class="page-subtitle">Monitor flower stock levels, handcrafted items, and wrapping supplies.</p>
             </div>
             <div class="header-btn-group">
-                <button class="btn btn-secondary" @click="navigateTo('dashboard')">
-                    <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
-                </button>
                 <button class="btn btn-primary" @click="openModal('addEditItem')">
-                    <i class="fa-solid fa-plus"></i> Add Stock Item
+                    <i class="fa-solid fa-plus"></i> Add Product
                 </button>
             </div>
         </div>
@@ -133,7 +162,14 @@
                     <tbody>
                         <tr v-for="item in filteredInventory" :key="item.id">
                             <td class="cell-id">{{ item.id }}</td>
-                            <td class="cell-semi-bold">{{ item.itemName }}</td>
+                            <td class="cell-semi-bold">
+                                <div class="inventory-item-cell">
+                                    <img v-if="getProductImage(item) && !imageLoadErrors[item.id]"
+                                        :src="getProductImage(item)" :alt="item.itemName" class="inventory-item-img"
+                                        loading="lazy" @error="imageLoadErrors[item.id] = true">
+                                    <span>{{ item.itemName }}</span>
+                                </div>
+                            </td>
                             <td><span class="badge badge-secondary-slate">{{ item.category }}</span></td>
                             <td>
                                 <span class="badge" :class="Number(item.stock) < 10 ? 'badge-low-stock' : 'badge-in-stock'">
@@ -155,7 +191,7 @@
                         </tr>
                         <tr v-if="filteredInventory.length === 0">
                             <td colspan="6" class="table-empty-cell">
-                                No stock items match your search criteria.
+                                No products match your search criteria.
                             </td>
                         </tr>
                     </tbody>
@@ -168,7 +204,7 @@
     <div v-if="activeModal === 'addEditItem'" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>{{ isEditingItem ? 'Edit Stock Item' : 'Add Inventory Item' }}</h3>
+                <h3>{{ isEditingItem ? 'Edit Product' : 'Add Product' }}</h3>
                 <button class="btn btn-sm btn-secondary" @click="closeModal"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <form @submit.prevent="saveItem">
@@ -202,6 +238,34 @@
                         <input type="number" class="form-control" :class="{ 'input-error': itemErrors.unitPrice }" v-model="itemForm.unitPrice" @input="clearItemErrors" required min="0">
                         <div v-if="itemErrors.unitPrice" class="field-error">{{ itemErrors.unitPrice }}</div>
                     </div>
+
+                    <div class="form-group form-full">
+                        <label>Product Photo</label>
+                        <div class="item-image-upload">
+                            <div class="item-image-frame">
+                                <img v-if="itemForm.image && getProductImage(itemForm)"
+                                    :src="getProductImage(itemForm)" class="item-image-preview" alt="Product photo preview">
+                                <div class="item-image-placeholder" v-else>
+                                    <i class="fa-solid fa-camera"></i>
+                                    <span>No photo yet</span>
+                                </div>
+                            </div>
+                            <div class="item-image-actions">
+                                <label class="btn btn-sm btn-secondary item-image-label">
+                                    <i class="fa-solid fa-upload"></i>
+                                    {{ itemForm.image ? 'Change Photo' : 'Upload Photo' }}
+                                    <input type="file" accept="image/*" class="item-image-input"
+                                        @change="onItemImageSelected">
+                                </label>
+                                <button type="button" class="btn btn-sm btn-danger" v-if="itemForm.image"
+                                    @click="removeItemFormImage">
+                                    <i class="fa-solid fa-trash"></i> Remove
+                                </button>
+                                <span class="cell-subtext">JPG, PNG or WebP — max 5MB, auto-resized</span>
+                            </div>
+                        </div>
+                        <div v-if="itemErrors.image" class="field-error">{{ itemErrors.image }}</div>
+                    </div>
                 </div>
 
                 <div class="modal-footer">
@@ -209,7 +273,7 @@
                         Back to Inventory
                     </button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="fa-solid fa-floppy-disk"></i> Save Stock Item
+                        <i class="fa-solid fa-floppy-disk"></i> Save Product
                     </button>
                 </div>
             </form>
@@ -237,8 +301,8 @@
 
     <!-- TOAST NOTIFICATION -->
     <div class="toast-container" v-if="toast.show">
-        <div class="toast">
-            <i class="fa-solid fa-circle-info toast-icon"></i>
+        <div class="toast" :class="'toast-' + toast.type" role="alert">
+            <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
             <span>{{ toast.message }}</span>
         </div>
     </div>
@@ -251,6 +315,6 @@
 </div>
 
 <!-- Application Logic -->
-<script src="../JS/app.js"></script>
+<script defer src="../JS/app.js"></script>
 </body>
 </html>

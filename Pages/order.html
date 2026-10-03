@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,10 +11,12 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Vue 3 Framework -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script defer src="../JS/vue.global.prod.js"></script>
     <!-- Custom Style -->
     <link rel="stylesheet" href="../CSS/style.css">
-</head>
+
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    </head>
 <body>
     <div id="app-loading" style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;">
   <div style="text-align:center;">
@@ -24,11 +26,11 @@
 </div>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
-<div id="app">
+<div id="app" v-cloak>
 
     <!-- GLOBAL NAVIGATION BAR -->
     <nav class="navbar">
-        <div class="brand-logo" @click="navigateTo('landing')">
+        <div class="brand-logo">
             <div class="brand-logo-icon">
                 <i class="fa-solid fa-spa icon-white"></i>
             </div>
@@ -37,11 +39,11 @@
             </div>
         </div>
 
-        <button v-if="isLoggedIn" class="mobile-toggle-btn" @click="toggleMobileMenu" aria-label="Toggle Navigation Menu">
+        <button v-if="isAdminRole" class="mobile-toggle-btn" @click="toggleMobileMenu" aria-label="Toggle Navigation Menu">
             <i :class="isMobileMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
         </button>
 
-        <ul v-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
+        <ul v-if="isAdminRole" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
             <li>
                 <a class="nav-link" @click.prevent="navigateTo('dashboard')" href="dashboard.html">
                     <i class="fa-solid fa-chart-line"></i> <span>Dashboard</span>
@@ -67,6 +69,12 @@
                     <i class="fa-solid fa-file-invoice-dollar"></i> <span>Reports</span>
                 </a>
             </li>
+            <li class="nav-notification-item">
+                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+                </a>
+            </li>
         </ul>
 
         <div v-if="isLoggedIn" class="user-badge">
@@ -78,20 +86,36 @@
         </div>
     </nav>
 
+    <!-- NOTIFICATION DROPDOWN -->
+    <div class="notification-panel" v-if="notificationsOpen" @click.self="notificationsOpen = false">
+        <div class="notification-panel-header">
+            <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+            <button class="notification-close" @click="notificationsOpen = false"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="notification-panel-body" v-if="visibleNotifications.length > 0">
+            <div class="notification-item" v-for="notif in visibleNotifications.slice(0, 10)" :key="notif.id"
+                role="button" tabindex="0" @click="openNotification(notif)" @keydown.enter="openNotification(notif)">
+                <div class="notification-icon" :class="'notif-' + notif.type">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+                <div class="notification-content">
+                    <p>{{ notif.message }}</p>
+                    <span class="notification-time">{{ new Date(notif.createdAt).toLocaleString() }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="notification-empty" v-else>
+            <i class="fa-solid fa-bell-slash"></i>
+            <p>No notifications yet</p>
+        </div>
+    </div>
+
     <!-- ORDERS SECTION -->
     <main class="layout-container">
         <div class="page-header">
             <div class="page-title-group">
                 <h1>Order Management</h1>
                 <p class="page-subtitle">Track custom handmade bouquet orders and update delivery status.</p>
-            </div>
-            <div class="header-btn-group">
-                <button class="btn btn-secondary" @click="navigateTo('dashboard')">
-                    <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
-                </button>
-                <button class="btn btn-primary" @click="openModal('addEditOrder')">
-                    <i class="fa-solid fa-plus"></i> Add New Order
-                </button>
             </div>
         </div>
 
@@ -106,9 +130,9 @@
                 <select class="form-control select-auto" v-model="orderStatusFilter">
                     <option value="All">All Statuses</option>
                     <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
+                    <option value="Processing">Processing</option>
+                    <option value="Shipped">Shipped</option>
                     <option value="Completed">Completed</option>
-                    <option value="Delivered">Delivered</option>
                 </select>
             </div>
         </div>
@@ -150,11 +174,13 @@
                             </td>
                             <td class="cell-bold">₱{{ Number(order.price).toLocaleString() }}</td>
                             <td>
-                                <select class="form-control select-status" :value="order.status" @change="updateOrderStatus(order, $event.target.value)">
+                                <select class="form-control select-status" :value="order.status"
+                                    @change="requestStatusChange(order, $event.target.value); $event.target.value = order.status"
+                                    aria-label="Change order status">
                                     <option value="Pending">Pending</option>
-                                    <option value="In Progress">In Progress</option>
+                                    <option value="Processing">Processing</option>
+                                    <option value="Shipped">Shipped</option>
                                     <option value="Completed">Completed</option>
-                                    <option value="Delivered">Delivered</option>
                                 </select>
                             </td>
                             <td>
@@ -254,9 +280,9 @@
                         <label>Order Status</label>
                         <select class="form-control" v-model="orderForm.status">
                             <option value="Pending">Pending</option>
-                            <option value="In Progress">In Progress</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Shipped">Shipped</option>
                             <option value="Completed">Completed</option>
-                            <option value="Delivered">Delivered</option>
                         </select>
                     </div>
 
@@ -299,8 +325,8 @@
 
     <!-- TOAST NOTIFICATION -->
     <div class="toast-container" v-if="toast.show">
-        <div class="toast">
-            <i class="fa-solid fa-circle-info toast-icon"></i>
+        <div class="toast" :class="'toast-' + toast.type" role="alert">
+            <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
             <span>{{ toast.message }}</span>
         </div>
     </div>
@@ -313,6 +339,6 @@
 </div>
 
 <!-- Application Logic -->
-<script src="../JS/app.js"></script>
+<script defer src="../JS/app.js"></script>
 </body>
 </html>

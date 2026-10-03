@@ -1,0 +1,314 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop Bouquets - Blooms by Jen</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 Framework -->
+    <script defer src="../JS/vue.global.prod.js"></script>
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+<body>
+
+<div id="app" v-cloak>
+
+    <!-- CUSTOMER NAVIGATION BAR -->
+    <nav class="navbar customer-navbar">
+        <div class="brand-logo">
+            <div class="brand-logo-icon">
+                <i class="fa-solid fa-spa icon-white"></i>
+            </div>
+            <div>
+                <span class="brand-title">Blooms by Jen</span>
+            </div>
+        </div>
+
+        <button class="mobile-toggle-btn" @click="toggleCustomerMenu" aria-label="Toggle Menu">
+            <i :class="isCustomerMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
+        </button>
+
+        <ul class="nav-links customer-nav-links" :class="{ 'mobile-active': isCustomerMenuOpen }">
+            <li>
+                <a class="nav-link active" @click.prevent="navigateTo('shop')" href="shop.html">
+                    <i class="fa-solid fa-store"></i> <span>Shop</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('customize')" href="customize.html">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Customize</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('cart')" href="cart.html">
+                    <i class="fa-solid fa-cart-shopping"></i> <span>Cart</span>
+                    <span class="cart-badge" :class="{ 'cart-badge-pulse': cartPulse }" v-if="cartCount > 0">{{ cartCount }}</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="navigateTo('myorders')" href="myorders.html">
+                    <i class="fa-solid fa-receipt"></i> <span>My Orders</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="navigateTo('profile')" href="profile.html">
+                    <i class="fa-solid fa-user"></i> <span>Profile</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn" class="nav-notification-item">
+                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="handleLogout" href="#">
+                    <i class="fa-solid fa-power-off"></i> <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- NOTIFICATION DROPDOWN -->
+    <div class="notification-panel" v-if="notificationsOpen" @click.self="notificationsOpen = false">
+        <div class="notification-panel-header">
+            <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+            <button class="notification-close" @click="notificationsOpen = false"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="notification-panel-body" v-if="visibleNotifications.length > 0">
+            <div class="notification-item" v-for="notif in visibleNotifications.slice(0, 10)" :key="notif.id"
+                role="button" tabindex="0" @click="openNotification(notif)" @keydown.enter="openNotification(notif)">
+                <div class="notification-icon" :class="'notif-' + notif.type">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+                <div class="notification-content">
+                    <p>{{ notif.message }}</p>
+                    <span class="notification-time">{{ new Date(notif.createdAt).toLocaleString() }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="notification-empty" v-else>
+            <i class="fa-solid fa-bell-slash"></i>
+            <p>No notifications yet</p>
+        </div>
+    </div>
+
+    <!-- ORDER SUCCESS MODAL -->
+    <div v-if="customerOrderPlaced" class="modal-overlay">
+        <div class="modal-content order-success-modal">
+            <div class="order-success-icon">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <h2>Order Placed Successfully!</h2>
+            <p class="order-success-text">Thank you for your order. Here is your order reference:</p>
+            <div class="order-success-id">{{ placedOrderId }}</div>
+            <p class="order-success-note">Please save this order ID — you can view your order status anytime under My Orders.</p>
+            <div class="order-success-actions">
+                <button class="btn btn-primary" @click="resetCustomerOrderPlaced(); navigateTo('myorders');">
+                    <i class="fa-solid fa-receipt"></i> View My Orders
+                </button>
+                <button class="btn btn-secondary" @click="resetCustomerOrderPlaced()">
+                    <i class="fa-solid fa-store"></i> Continue Shopping
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHOP SECTION -->
+    <main class="layout-container">
+
+        <!-- Shop Header -->
+        <div class="page-header">
+            <div class="page-title-group">
+                <h1>Shop Our Bouquets</h1>
+                <p class="page-subtitle">Browse our handcrafted floral arrangements and place your custom order.</p>
+            </div>
+            <button class="btn btn-primary customizer-cta" @click="navigateTo('customize')">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Design Your Bouquet
+            </button>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="glass-card filter-bar">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" class="form-control" v-model="customerSearch" placeholder="Search bouquets...">
+            </div>
+            <div class="filter-select-group">
+                <label class="filter-label">Category:</label>
+                <select class="form-control select-auto" v-model="customerCategoryFilter">
+                    <option value="All">All Categories</option>
+                    <option value="Single Stems">Single Stems</option>
+                    <option value="Mini Bouquets">Mini Bouquets</option>
+                    <option value="Bundle Deals">Bundle Deals</option>
+                    <option value="Premium Bouquets">Premium Bouquets</option>
+                    <option value="Potted Arrangements">Potted Arrangements</option>
+                    <option value="Specialty Items">Specialty Items</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Product Grid -->
+        <div class="shop-grid" v-if="filteredCustomerInventory.length > 0">
+            <div class="glass-card shop-product-card" v-for="item in filteredCustomerInventory" :key="item.id">
+                <div class="shop-product-category">
+                    <span class="badge badge-secondary-slate">{{ item.category }}</span>
+                </div>
+                <div class="shop-product-media">
+                    <img v-if="getProductImage(item) && !imageLoadErrors[item.id]"
+                        :src="getProductImage(item)" :alt="item.itemName" class="shop-product-img" loading="lazy"
+                        @error="imageLoadErrors[item.id] = true">
+                    <div class="shop-product-icon" v-else>
+                        <i class="fa-solid fa-fleur"></i>
+                    </div>
+                </div>
+                <h3 class="shop-product-name">{{ item.itemName }}</h3>
+                <div class="shop-product-price">₱{{ Number(item.unitPrice).toLocaleString() }}</div>
+                <div class="shop-product-stock" :class="Number(item.stock) < 10 ? 'shop-stock-low' : 'shop-stock-ok'">
+                    <i :class="Number(item.stock) < 10 ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-check'"></i>
+                    <span v-if="Number(item.stock) === 0">Out of stock</span>
+                    <span v-else-if="Number(item.stock) <= 5">Only {{ item.stock }} left</span>
+                    <span v-else>{{ item.stock }} available</span>
+                </div>
+                <button class="btn btn-primary shop-order-btn" @click="addToCart(item)"
+                    :disabled="Number(item.stock) === 0"
+                    :class="{ 'shop-btn-disabled': Number(item.stock) === 0 }">
+                    <i class="fa-solid fa-ban" v-if="Number(item.stock) === 0"></i>
+                    <i class="fa-solid fa-check" v-else-if="isInCart(item.id)"></i>
+                    <i class="fa-solid fa-cart-plus" v-else></i>
+                    {{ Number(item.stock) === 0 ? 'Out of Stock' : (isInCart(item.id) ? 'Add Another' : 'Add to Cart') }}
+                </button>
+            </div>
+        </div>
+
+        <!-- No Products Found -->
+        <div class="glass-card shop-empty" v-else>
+            <i class="fa-solid fa-spa shop-empty-icon"></i>
+            <h3>No bouquets found</h3>
+            <p>Try adjusting your search or category filter.</p>
+        </div>
+
+        <!-- Customer Order Form -->
+        <div class="glass-card customer-order-form-box" id="customer-order-modal" v-if="customerOrderForm.bouquetType">
+            <h2 class="customer-order-title">
+                <i class="fa-solid fa-pen-to-square"></i> Place Your Order
+            </h2>
+            <p class="customer-order-subtitle">Fill in your details to order <strong>{{ customerOrderForm.bouquetType }}</strong></p>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Your Full Name *</label>
+                    <input type="text" class="form-control" :class="{ 'input-error': customerOrderErrors.customerName }"
+                        v-model="customerOrderForm.customerName" placeholder="e.g. Maria Santos">
+                    <div class="field-error" v-if="customerOrderErrors.customerName">{{ customerOrderErrors.customerName }}</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Contact Number *</label>
+                    <input type="tel" class="form-control" :class="{ 'input-error': customerOrderErrors.contactNumber }"
+                        v-model="customerOrderForm.contactNumber" placeholder="e.g. 0917 123 4567">
+                    <div class="field-error" v-if="customerOrderErrors.contactNumber">{{ customerOrderErrors.contactNumber }}</div>
+                </div>
+
+                <div class="form-group form-full">
+                    <label>Selected Bouquet *</label>
+                    <select class="form-control" :class="{ 'input-error': customerOrderErrors.bouquetType }"
+                        v-model="customerOrderForm.bouquetType" @change="updateCustomerQuantity">
+                        <option value="" disabled>-- Select a bouquet --</option>
+                        <option v-for="item in inventory" :key="item.id" :value="item.itemName">
+                            {{ item.itemName }} — ₱{{ Number(item.unitPrice).toLocaleString() }} (Stock: {{ item.stock }})
+                        </option>
+                    </select>
+                    <div class="field-error" v-if="customerOrderErrors.bouquetType">{{ customerOrderErrors.bouquetType }}</div>
+                </div>
+
+                <!-- Bouquet Customization -->
+                <div class="form-full bouquet-customizer-box">
+                    <h4 class="customizer-title">
+                        <i class="fa-solid fa-palette"></i> Bouquet Customization
+                    </h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Wrapping Paper Color</label>
+                            <input type="text" class="form-control" v-model="customerOrderForm.wrappingColor"
+                                placeholder="e.g. Soft Blush Pink">
+                        </div>
+                        <div class="form-group">
+                            <label>Ribbon Color</label>
+                            <input type="text" class="form-control" v-model="customerOrderForm.ribbonColor"
+                                placeholder="e.g. Golden Satin">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Quantity
+                        <span v-if="customerSelectedBouquet" class="stock-indicator-info">
+                            (Max: {{ customerSelectedBouquet.stock }})
+                        </span>
+                    </label>
+                    <input type="number" class="form-control" :class="{ 'input-error': customerOrderErrors.quantity }"
+                        v-model.number="customerOrderForm.quantity" @input="updateCustomerQuantity"
+                        min="1" :max="customerMaxQuantity">
+                    <div class="field-error" v-if="customerOrderErrors.quantity">{{ customerOrderErrors.quantity }}</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Total Price (PHP) <span class="label-badge-auto">(Auto-Calculated)</span></label>
+                    <input type="text" class="form-control input-calculated-price" :value="'₱' + customerTotalPrice.toLocaleString()" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Payment Method</label>
+                    <select class="form-control" v-model="customerOrderForm.paymentMethod">
+                        <option value="Cash">Cash (Over-the-Counter)</option>
+                        <option value="GCash">GCash</option>
+                    </select>
+                </div>
+
+                <div class="form-group form-full">
+                    <label>Greeting Card Message / Special Instructions</label>
+                    <textarea class="form-control" v-model="customerOrderForm.customMessage" rows="2"
+                        placeholder="Message written on greeting card..."></textarea>
+                </div>
+            </div>
+
+            <div class="customer-order-actions">
+                <button class="btn btn-secondary" @click="clearCustomerOrderForm()">
+                    <i class="fa-solid fa-xmark"></i> Cancel
+                </button>
+                <button class="btn btn-primary" @click="placeCustomerOrder()">
+                    <i class="fa-solid fa-paper-plane"></i> Place Order
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast-container" v-if="toast.show">
+        <div class="toast" :class="'toast-' + toast.type" role="alert">
+            <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
+            <span>{{ toast.message }}</span>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+        <p><strong>Blooms by Jen</strong> • Handmade Flower Shop Management System</p>
+    </footer>
+
+</div>
+
+<!-- Application Logic -->
+<script defer src="../JS/app.js"></script>
+</body>
+</html>

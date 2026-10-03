@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -14,18 +14,20 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Vue 3 Framework -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script defer src="../JS/vue.global.prod.js"></script>
     <!-- Custom Style -->
     <link rel="stylesheet" href="../CSS/style.css">
-</head>
+
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    </head>
 
 <body>
 
-    <div id="app">
+    <div id="app" v-cloak>
 
         <!-- GLOBAL NAVIGATION BAR -->
         <nav class="navbar">
-            <div class="brand-logo" @click="navigateTo('landing')">
+            <div class="brand-logo">
                 <div class="brand-logo-icon">
                     <i class="fa-solid fa-spa icon-white"></i>
                 </div>
@@ -39,7 +41,8 @@
                 <i :class="isMobileMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
             </button>
 
-            <ul v-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
+            <!-- Admin links: only the admin sees these -->
+            <ul v-if="isAdminRole" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
                 <li>
                     <a class="nav-link" :class="{ active: currentScreen === 'dashboard' }"
                         @click.prevent="navigateTo('dashboard')" href="dashboard.html">
@@ -72,6 +75,40 @@
                 </li>
             </ul>
 
+            <!-- Customer links: logged-in customers never see admin links -->
+            <ul v-else-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'shop' }"
+                        @click.prevent="navigateTo('shop')" href="shop.html">
+                        <i class="fa-solid fa-store"></i> <span>Shop</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'customize' }"
+                        @click.prevent="navigateTo('customize')" href="customize.html">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Customize</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'cart' }"
+                        @click.prevent="navigateTo('cart')" href="cart.html">
+                        <i class="fa-solid fa-cart-shopping"></i> <span>Cart</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'myorders' }"
+                        @click.prevent="navigateTo('myorders')" href="myorders.html">
+                        <i class="fa-solid fa-receipt"></i> <span>My Orders</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'profile' }"
+                        @click.prevent="navigateTo('profile')" href="profile.html">
+                        <i class="fa-solid fa-user"></i> <span>Profile</span>
+                    </a>
+                </li>
+            </ul>
+
             <div v-if="isLoggedIn" class="user-badge">
                 <i class="fa-solid fa-user-circle"></i>
                 <span>{{ currentUser.name }}</span>
@@ -95,10 +132,10 @@
                     </p>
                     <div class="hero-actions">
                         <button class="btn btn-primary" @click="navigateTo('login')">
-                            <i class="fa-solid fa-right-to-bracket"></i> Login to System
+                            <i class="fa-solid fa-right-to-bracket"></i> Login
                         </button>
-                        <button class="btn btn-secondary" @click="openModal('features')">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> Explore Features
+                        <button class="btn btn-secondary" @click="navigateTo('register')">
+                            <i class="fa-solid fa-user-plus"></i> Create Account
                         </button>
                     </div>
                 </div>
@@ -121,47 +158,10 @@
 
         </main>
 
-        <!-- FEATURES MODAL -->
-        <div v-if="activeModal === 'features'" class="modal-overlay">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Blooms by Jen - System Capabilities</h3>
-                    <button class="btn btn-sm btn-secondary" @click="closeModal"><i
-                            class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="modal-body">
-                    <div class="feature-modal-item">
-                        <h4><i class="fa-solid fa-circle-check icon-rose-check"></i> Automated Order Management</h4>
-                        <p class="feature-modal-desc">Process custom bouquet orders digitally with custom status
-                            pipeline tracking (Pending, In Progress, Completed, Delivered).</p>
-                    </div>
-                    <div class="feature-modal-item">
-                        <h4><i class="fa-solid fa-circle-check icon-rose-check"></i> Real-Time Inventory Tracking</h4>
-                        <p class="feature-modal-desc">Instant stem & supply monitoring with automatic alerts when stock
-                            falls below 10 units.</p>
-                    </div>
-                    <div class="feature-modal-item">
-                        <h4><i class="fa-solid fa-circle-check icon-rose-check"></i> Sales Logging & CSV Export</h4>
-                        <p class="feature-modal-desc">Log GCash, Cash transactions instantly and export comprehensive
-                            reports.</p>
-                    </div>
-                    <div>
-                        <h4><i class="fa-solid fa-circle-check icon-rose-check"></i> Mobile & Educator Optimized</h4>
-                        <p class="feature-modal-desc">Responsive design optimized for Ms. Jenelyn Ortiz to
-                            manage her shop from phone or computer.</p>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" @click="closeModal">Close</button>
-                    <button class="btn btn-primary" @click="closeModal(); navigateTo('login')">Proceed to Login</button>
-                </div>
-            </div>
-        </div>
-
         <!-- TOAST NOTIFICATION -->
         <div class="toast-container" v-if="toast.show">
-            <div class="toast">
-                <i class="fa-solid fa-circle-info toast-icon"></i>
+            <div class="toast" :class="'toast-' + toast.type" role="alert">
+                <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
                 <span>{{ toast.message }}</span>
             </div>
         </div>
@@ -174,7 +174,7 @@
     </div>
 
     <!-- Application Logic -->
-    <script src="../JS/app.js"></script>
+    <script defer src="../JS/app.js"></script>
 </body>
 
 </html>

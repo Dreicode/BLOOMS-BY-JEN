@@ -1,0 +1,328 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders - Blooms by Jen</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 Framework -->
+    <script defer src="../JS/vue.global.prod.js"></script>
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+<body>
+
+<div id="app" v-cloak>
+
+    <!-- CUSTOMER NAVIGATION BAR -->
+    <nav class="navbar customer-navbar">
+        <div class="brand-logo">
+            <div class="brand-logo-icon">
+                <i class="fa-solid fa-spa icon-white"></i>
+            </div>
+            <div>
+                <span class="brand-title">Blooms by Jen</span>
+            </div>
+        </div>
+
+        <button class="mobile-toggle-btn" @click="toggleCustomerMenu" aria-label="Toggle Menu">
+            <i :class="isCustomerMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
+        </button>
+
+        <ul class="nav-links customer-nav-links" :class="{ 'mobile-active': isCustomerMenuOpen }">
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('shop')" href="shop.html">
+                    <i class="fa-solid fa-store"></i> <span>Shop</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('customize')" href="customize.html">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Customize</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('cart')" href="cart.html">
+                    <i class="fa-solid fa-cart-shopping"></i> <span>Cart</span>
+                    <span class="cart-badge" :class="{ 'cart-badge-pulse': cartPulse }" v-if="cartCount > 0">{{ cartCount }}</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link active" @click.prevent="navigateTo('myorders')" href="myorders.html">
+                    <i class="fa-solid fa-receipt"></i> <span>My Orders</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="navigateTo('profile')" href="profile.html">
+                    <i class="fa-solid fa-user"></i> <span>Profile</span>
+                </a>
+            </li>
+            <li class="nav-notification-item">
+                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="handleLogout" href="#">
+                    <i class="fa-solid fa-power-off"></i> <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- NOTIFICATION DROPDOWN -->
+    <div class="notification-panel" v-if="notificationsOpen" @click.self="notificationsOpen = false">
+        <div class="notification-panel-header">
+            <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+            <button class="notification-close" @click="notificationsOpen = false"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="notification-panel-body" v-if="visibleNotifications.length > 0">
+            <div class="notification-item" v-for="notif in visibleNotifications.slice(0, 10)" :key="notif.id"
+                role="button" tabindex="0" @click="openNotification(notif)" @keydown.enter="openNotification(notif)">
+                <div class="notification-icon" :class="'notif-' + notif.type">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+                <div class="notification-content">
+                    <p>{{ notif.message }}</p>
+                    <span class="notification-time">{{ new Date(notif.createdAt).toLocaleString() }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="notification-empty" v-else>
+            <i class="fa-solid fa-bell-slash"></i>
+            <p>No notifications yet</p>
+        </div>
+    </div>
+
+    <!-- MY ORDERS SECTION -->
+    <main class="layout-container">
+
+        <div class="page-header">
+            <div class="page-title-group">
+                <h1>My Orders</h1>
+                <p class="page-subtitle">Track every order from To Pay &rarr; To Ship &rarr; To Receive &rarr; To Review.</p>
+            </div>
+            <div class="header-btn-group">
+                <button class="btn btn-primary" @click="navigateTo('shop')">
+                    <i class="fa-solid fa-store"></i> Shop More
+                </button>
+            </div>
+        </div>
+
+        <!-- Orders List -->
+        <div class="glass-card" v-if="myOrders.length > 0">
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Bouquet</th>
+                            <th>Date</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="order in myOrders" :key="order.id">
+                            <td class="cell-id">{{ order.id }}</td>
+                            <td>
+                                <strong>{{ order.bouquetType }}</strong>
+                                <span v-if="order.quantity > 1" class="badge badge-sky badge-quantity ms-1">x{{ order.quantity }}</span>
+                                <div v-if="order.customMessage" class="cell-italic-subtext">
+                                    "{{ order.customMessage }}"
+                                </div>
+                            </td>
+                            <td>{{ order.date }}</td>
+                            <td class="cell-bold">₱{{ Number(order.price).toLocaleString() }}</td>
+                            <td>
+                                <span class="badge"
+                                    :class="{
+                                        'badge-pending': order.status === 'Pending',
+                                        'badge-in-progress': order.status === 'Processing',
+                                        'badge-completed': order.status === 'Shipped',
+                                        'badge-delivered': order.status === 'Completed'
+                                    }">
+                                    {{ order.status }}
+                                </span>
+                                <br>
+                                <span class="stage-chip"
+                                    :class="'stage-' + getOrderStage(order).toLowerCase().replace(/\s+/g, '-')">
+                                    {{ getOrderStage(order) }}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-secondary" @click="viewOrderDetails(order)">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- No Orders -->
+        <div class="glass-card shop-empty" v-else>
+            <i class="fa-solid fa-receipt shop-empty-icon"></i>
+            <h3>No Orders Yet</h3>
+            <p>You haven't placed any orders yet. Start shopping!</p>
+            <button class="btn btn-primary" @click="navigateTo('shop')" style="margin-top: 1rem;">
+                <i class="fa-solid fa-store"></i> Shop Bouquets
+            </button>
+        </div>
+
+    </main>
+
+    <!-- ORDER DETAILS MODAL -->
+    <div v-if="selectedOrder" class="modal-overlay" @click.self="selectedOrder = null">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Order Details - {{ selectedOrder.id }}</h3>
+                <button class="btn btn-sm btn-secondary" @click="selectedOrder = null"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <!-- Fulfillment stepper: To Pay -> To Ship -> To Receive -> To Review -->
+                <div class="order-stepper" aria-label="Order progress">
+                    <div class="order-step" v-for="(stage, idx) in ORDER_STAGES" :key="stage"
+                        :class="{ 'is-done': idx < getOrderStageIndex(selectedOrder), 'is-active': idx === getOrderStageIndex(selectedOrder) }">
+                        <span class="step-icon"><i class="fa-solid" :class="STAGE_ICONS[stage]"></i></span>
+                        <span class="step-label">{{ stage }}</span>
+                    </div>
+                </div>
+                <div class="order-bouquet-thumbs"
+                    v-if="selectedOrder.cartItems && selectedOrder.cartItems.some(c => c.customizations && c.customizations.bouquet)">
+                    <div class="order-bouquet-thumb-wrap"
+                        v-for="ci in selectedOrder.cartItems.filter(c => c.customizations && c.customizations.bouquet)"
+                        :key="ci.lineId || ci.itemId">
+                        <bouquet-thumb :c="ci.customizations" class="order-bouquet-thumb"></bouquet-thumb>
+                        <span class="order-bouquet-caption">{{ ci.itemName }} x{{ ci.quantity }}</span>
+                    </div>
+                </div>
+                <div class="track-info-grid">
+                    <div class="track-info-item">
+                        <div class="track-info-label"><i class="fa-solid fa-fleur"></i> Bouquet</div>
+                        <div class="track-info-value">{{ selectedOrder.bouquetType }}</div>
+                    </div>
+                    <div class="track-info-item">
+                        <div class="track-info-label"><i class="fa-solid fa-hashtag"></i> Quantity</div>
+                        <div class="track-info-value">{{ selectedOrder.quantity || 1 }}</div>
+                    </div>
+                    <div class="track-info-item">
+                        <div class="track-info-label"><i class="fa-solid fa-calendar"></i> Date</div>
+                        <div class="track-info-value">{{ selectedOrder.date }}</div>
+                    </div>
+                    <div class="track-info-item">
+                        <div class="track-info-label"><i class="fa-solid fa-peso-sign"></i> Total</div>
+                        <div class="track-info-value track-total-price">₱{{ Number(selectedOrder.price).toLocaleString() }}</div>
+                    </div>
+                    <div class="track-info-item">
+                        <div class="track-info-label"><i class="fa-solid fa-truck"></i> Delivery Fee</div>
+                        <div class="track-info-value">{{ selectedOrder.deliveryFee != null ? '₱' + Number(selectedOrder.deliveryFee).toLocaleString() : '—' }}</div>
+                    </div>
+                    <div class="track-info-item" v-if="selectedOrder.wrappingColor">
+                        <div class="track-info-label"><i class="fa-solid fa-gift"></i> Wrapping</div>
+                        <div class="track-info-value">{{ selectedOrder.wrappingColor }}</div>
+                    </div>
+                    <div class="track-info-item" v-if="selectedOrder.ribbonColor">
+                        <div class="track-info-label"><i class="fa-solid fa-ribbon"></i> Ribbon</div>
+                        <div class="track-info-value">{{ selectedOrder.ribbonColor }}</div>
+                    </div>
+                    <div class="track-info-item" v-if="selectedOrder.paymentMethod">
+                        <div class="track-info-label"><i class="fa-solid fa-wallet"></i> Payment</div>
+                        <div class="track-info-value">{{ selectedOrder.paymentMethod }}</div>
+                    </div>
+                    <div class="track-info-item">
+                        <div class="track-info-label"><i class="fa-solid fa-circle-info"></i> Status</div>
+                        <div class="track-info-value">
+                            <span class="badge"
+                                :class="{
+                                    'badge-pending': selectedOrder.status === 'Pending',
+                                    'badge-in-progress': selectedOrder.status === 'Processing',
+                                    'badge-completed': selectedOrder.status === 'Shipped',
+                                    'badge-delivered': selectedOrder.status === 'Completed'
+                                }">
+                                {{ selectedOrder.status }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="track-message-box" v-if="selectedOrder.customMessage">
+                    <div class="track-message-label"><i class="fa-solid fa-comment-dots"></i> Greeting Card Message</div>
+                    <div class="track-message-text">"{{ selectedOrder.customMessage }}"</div>
+                </div>
+                <div class="track-message-box"
+                    v-if="selectedOrder.cartItems && selectedOrder.cartItems.some(c => c.customizations && c.customizations.message)">
+                    <div class="track-message-label"><i class="fa-solid fa-envelope-open-text"></i> Message Letters</div>
+                    <div class="track-message-text"
+                        v-for="ci in selectedOrder.cartItems.filter(c => c.customizations && c.customizations.message)"
+                        :key="ci.lineId || ci.itemId">
+                        "{{ ci.customizations.message }}" <span class="cell-subtext">— {{ ci.itemName }}</span>
+                    </div>
+                </div>
+
+                <!-- Review: unlocked once the order reaches "To Review" -->
+                <div class="review-box" v-if="selectedOrder.status === 'Completed' && !selectedOrder.review">
+                    <h4 class="review-title"><i class="fa-solid fa-star"></i> How was your order?</h4>
+                    <div class="star-rating" role="group" aria-label="Star rating">
+                        <button type="button" class="star-btn" v-for="star in 5" :key="star"
+                            :class="{ 'is-filled': star <= reviewRating }"
+                            @click="setReviewRating(star)" :aria-label="star + ' star rating'">
+                            <i class="fa-solid fa-star"></i>
+                        </button>
+                    </div>
+                    <div role="alert" v-if="reviewErrors.rating" class="field-error">
+                        <i class="fa-solid fa-circle-exclamation"></i> {{ reviewErrors.rating }}
+                    </div>
+                    <textarea class="form-control" v-model="reviewText" rows="3"
+                        placeholder="Share how it went (optional)"></textarea>
+                    <div role="alert" v-if="reviewErrors.comment" class="field-error">
+                        <i class="fa-solid fa-circle-exclamation"></i> {{ reviewErrors.comment }}
+                    </div>
+                    <button class="btn btn-primary review-submit" @click="submitReview(selectedOrder)">
+                        <i class="fa-solid fa-paper-plane"></i> Submit Review
+                    </button>
+                </div>
+                <div class="review-box review-readonly" v-else-if="selectedOrder.review">
+                    <h4 class="review-title"><i class="fa-solid fa-star"></i> Your review</h4>
+                    <div class="star-rating star-readonly">
+                        <span class="star-btn" v-for="star in 5" :key="star"
+                            :class="{ 'is-filled': star <= selectedOrder.review.rating }">
+                            <i class="fa-solid fa-star"></i>
+                        </span>
+                    </div>
+                    <p class="review-comment" v-if="selectedOrder.review.comment">"{{ selectedOrder.review.comment }}"</p>
+                    <span class="cell-subtext">{{ new Date(selectedOrder.review.at).toLocaleDateString() }}</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @click="selectedOrder = null">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast-container" v-if="toast.show">
+        <div class="toast" :class="'toast-' + toast.type" role="alert">
+            <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
+            <span>{{ toast.message }}</span>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+        <p><strong>Blooms by Jen</strong> • Handmade Flower Shop Management System</p>
+    </footer>
+
+</div>
+
+<!-- Application Logic -->
+<script defer src="../JS/app.js"></script>
+</body>
+</html>

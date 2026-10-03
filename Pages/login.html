@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -14,10 +14,12 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Vue 3 Framework -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script defer src="../JS/vue.global.prod.js"></script>
     <!-- Custom Style -->
     <link rel="stylesheet" href="../CSS/style.css">
-</head>
+
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    </head>
 
 <body>
     <div id="app-loading" style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;">
@@ -28,11 +30,11 @@
 </div>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
-    <div id="app">
+    <div id="app" v-cloak>
 
         <!-- GLOBAL NAVIGATION BAR -->
         <nav class="navbar">
-            <div class="brand-logo" @click="navigateTo('landing')">
+            <div class="brand-logo">
                 <div class="brand-logo-icon">
                     <i class="fa-solid fa-spa icon-white"></i>
                 </div>
@@ -46,7 +48,8 @@
                 <i :class="isMobileMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
             </button>
 
-            <ul v-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
+            <!-- Admin links: only the admin sees these -->
+            <ul v-if="isAdminRole" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
                 <li>
                     <a class="nav-link" :class="{ active: currentScreen === 'dashboard' }"
                         @click.prevent="navigateTo('dashboard')" href="dashboard.html">
@@ -79,6 +82,40 @@
                 </li>
             </ul>
 
+            <!-- Customer links: logged-in customers never see admin links -->
+            <ul v-else-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'shop' }"
+                        @click.prevent="navigateTo('shop')" href="shop.html">
+                        <i class="fa-solid fa-store"></i> <span>Shop</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'customize' }"
+                        @click.prevent="navigateTo('customize')" href="customize.html">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Customize</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'cart' }"
+                        @click.prevent="navigateTo('cart')" href="cart.html">
+                        <i class="fa-solid fa-cart-shopping"></i> <span>Cart</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'myorders' }"
+                        @click.prevent="navigateTo('myorders')" href="myorders.html">
+                        <i class="fa-solid fa-receipt"></i> <span>My Orders</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" :class="{ active: currentScreen === 'profile' }"
+                        @click.prevent="navigateTo('profile')" href="profile.html">
+                        <i class="fa-solid fa-user"></i> <span>Profile</span>
+                    </a>
+                </li>
+            </ul>
+
             <div v-if="isLoggedIn" class="user-badge">
                 <i class="fa-solid fa-user-circle"></i>
                 <span>{{ currentUser.name }}</span>
@@ -95,20 +132,20 @@
                     <div class="brand-logo-icon login-logo-icon">
                         <i class="fa-solid fa-lock"></i>
                     </div>
-                    <h2>Owner Authentication</h2>
-                    <p class="page-subtitle">Access Blooms by Jen Management Suite</p>
+                    <h2>Sign In</h2>
+                    <p class="page-subtitle">Access your Blooms by Jen account</p>
                 </div>
 
                 <form @submit.prevent="handleLogin">
-                    <div v-if="loginForm.error" class="login-error-alert">
-                        {{ loginForm.error }}
+                    <div role="alert" v-if="loginErrors.general" class="login-error-alert">
+                        <i class="fa-solid fa-circle-exclamation"></i> {{ loginErrors.general }}
                     </div>
 
                     <div class="form-group">
-                        <label for="email">Owner Email</label>
+                        <label for="email">Email Address</label>
                         <input type="email" id="email" class="form-control" :class="{ 'input-error': loginErrors.email }" v-model="loginForm.email" @input="clearLoginErrors"
-                            placeholder="Enter owner email" required>
-                        <div v-if="loginErrors.email" class="field-error">{{ loginErrors.email }}</div>
+                            placeholder="Enter your email" required>
+                        <div role="alert" v-if="loginErrors.email" class="field-error">{{ loginErrors.email }}</div>
                     </div>
 
                     <div class="form-group">
@@ -119,19 +156,20 @@
                             <i :class="loginForm.showPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"
                                 @click="loginForm.showPassword = !loginForm.showPassword"></i>
                         </div>
-                        <div v-if="loginErrors.password" class="field-error">{{ loginErrors.password }}</div>
-                    </div>
-
-                    <div class="login-demo-wrapper" v-if="IS_DEMO">
-                        <span class="demo-fill-btn" @click="fillDemoCredentials">
-                            <i class="fa-solid fa-key"></i> Auto-fill Demo Credentials
-                        </span>
+                        <div role="alert" v-if="loginErrors.password" class="field-error">{{ loginErrors.password }}</div>
                     </div>
 
                     <button type="submit" class="btn btn-primary btn-full-width">
-                        <i class="fa-solid fa-right-to-bracket"></i> Sign In to Dashboard
+                        <i class="fa-solid fa-right-to-bracket"></i> Sign In
                     </button>
                 </form>
+
+                <div class="login-register-wrapper">
+                    <span class="login-register-text">Don't have an account?</span>
+                    <a @click.prevent="navigateTo('register')" href="register.html" class="login-register-link">
+                        <i class="fa-solid fa-user-plus"></i> Create Account
+                    </a>
+                </div>
 
                 <div class="login-back-wrapper">
                     <a @click.prevent="navigateTo('landing')" href="landingpage.html" class="login-back-link">
@@ -162,8 +200,8 @@
 
         <!-- TOAST NOTIFICATION -->
         <div class="toast-container" v-if="toast.show">
-            <div class="toast">
-                <i class="fa-solid fa-circle-info toast-icon"></i>
+            <div class="toast" :class="'toast-' + toast.type" role="alert">
+                <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
                 <span>{{ toast.message }}</span>
             </div>
         </div>
@@ -176,7 +214,7 @@
     </div>
 
     <!-- Application Logic -->
-    <script src="../JS/app.js"></script>
+    <script defer src="../JS/app.js"></script>
 </body>
 
 </html>

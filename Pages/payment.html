@@ -1,0 +1,250 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment - Blooms by Jen</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="../JS/vue.global.prod.js"></script>
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+<body>
+
+<div id="app" v-cloak>
+
+    <!-- CUSTOMER NAVBAR -->
+    <nav class="navbar customer-navbar">
+        <div class="brand-logo">
+            <div class="brand-logo-icon"><i class="fa-solid fa-spa icon-white"></i></div>
+            <div><span class="brand-title">Blooms by Jen</span></div>
+        </div>
+        <button class="mobile-toggle-btn" @click="toggleCustomerMenu" aria-label="Toggle Menu">
+            <i :class="isCustomerMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
+        </button>
+        <ul class="nav-links customer-nav-links" :class="{ 'mobile-active': isCustomerMenuOpen }">
+            <li><a class="nav-link" @click.prevent="navigateTo('shop')" href="shop.html"><i class="fa-solid fa-store"></i> <span>Shop</span></a></li>
+            <li><a class="nav-link" @click.prevent="navigateTo('customize')" href="customize.html"><i class="fa-solid fa-wand-magic-sparkles"></i> <span>Customize</span></a></li>
+            <li><a class="nav-link" @click.prevent="navigateTo('cart')" href="cart.html"><i class="fa-solid fa-cart-shopping"></i> <span>Cart</span> <span class="cart-badge" :class="{ 'cart-badge-pulse': cartPulse }" v-if="cartCount > 0">{{ cartCount }}</span></a></li>
+            <li v-if="isLoggedIn"><a class="nav-link" @click.prevent="navigateTo('myorders')" href="myorders.html"><i class="fa-solid fa-receipt"></i> <span>My Orders</span></a></li>
+            <li v-if="isLoggedIn"><a class="nav-link" @click.prevent="navigateTo('profile')" href="profile.html"><i class="fa-solid fa-user"></i> <span>Profile</span></a></li>
+            <li v-if="isLoggedIn" class="nav-notification-item">
+                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn"><a class="nav-link" @click.prevent="handleLogout" href="#"><i class="fa-solid fa-power-off"></i> <span>Logout</span></a></li>
+        </ul>
+    </nav>
+
+    <!-- NOTIFICATION DROPDOWN -->
+    <div class="notification-panel" v-if="notificationsOpen" @click.self="notificationsOpen = false">
+        <div class="notification-panel-header">
+            <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+            <button class="notification-close" @click="notificationsOpen = false"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="notification-panel-body" v-if="visibleNotifications.length > 0">
+            <div class="notification-item" v-for="notif in visibleNotifications.slice(0, 10)" :key="notif.id"
+                role="button" tabindex="0" @click="openNotification(notif)" @keydown.enter="openNotification(notif)">
+                <div class="notification-icon" :class="'notif-' + notif.type">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+                <div class="notification-content">
+                    <p>{{ notif.message }}</p>
+                    <span class="notification-time">{{ new Date(notif.createdAt).toLocaleString() }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="notification-empty" v-else>
+            <i class="fa-solid fa-bell-slash"></i>
+            <p>No notifications yet</p>
+        </div>
+    </div>
+
+    <!-- PAYMENT SECTION -->
+    <main class="layout-container">
+
+        <!-- Checkout Steps -->
+        <div class="checkout-steps">
+            <div class="checkout-step step-done">
+                <div class="checkout-step-circle"><i class="fa-solid fa-cart-shopping"></i></div>
+                <div class="checkout-step-label">Cart</div>
+            </div>
+            <div class="checkout-step-line step-done"></div>
+            <div class="checkout-step step-done">
+                <div class="checkout-step-circle"><i class="fa-solid fa-location-dot"></i></div>
+                <div class="checkout-step-label">Checkout</div>
+            </div>
+            <div class="checkout-step-line step-done"></div>
+            <div class="checkout-step step-active">
+                <div class="checkout-step-circle"><i class="fa-solid fa-wallet"></i></div>
+                <div class="checkout-step-label">Payment</div>
+            </div>
+            <div class="checkout-step-line"></div>
+            <div class="checkout-step">
+                <div class="checkout-step-circle"><i class="fa-solid fa-box"></i></div>
+                <div class="checkout-step-label">Done</div>
+            </div>
+        </div>
+
+        <div class="checkout-layout">
+            <!-- Left: GCash Payment Form -->
+            <div class="checkout-form-col">
+                <div class="glass-card">
+                    <h2 class="checkout-section-title"><i class="fa-solid fa-mobile-screen-button"></i> GCash Payment</h2>
+
+                    <!-- GCash Instructions -->
+                    <div class="gcash-instructions">
+                        <div class="gcash-instruction-step">
+                            <span class="gcash-step-num">1</span>
+                            <div>
+                                <strong>Open your GCash app</strong>
+                                <p>Go to Send Money</p>
+                            </div>
+                        </div>
+                        <div class="gcash-instruction-step">
+                            <span class="gcash-step-num">2</span>
+                            <div class="gcash-instruction-step-body">
+                                <strong>Send to this number</strong>
+                                <button type="button" class="gcash-copy-btn" @click="copyGcashNumber()"
+                                    :aria-label="'Copy GCash number ' + GCASH_NUMBER">
+                                    <span class="gcash-number-display">{{ GCASH_NUMBER }}</span>
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                                <p class="cell-subtext">Blooms by Jen GCash — tap to copy</p>
+                            </div>
+                        </div>
+                        <div class="gcash-instruction-step">
+                            <span class="gcash-step-num">3</span>
+                            <div>
+                                <strong>Enter the exact amount</strong>
+                                <p class="gcash-number-display">₱{{ checkoutTotal.toLocaleString() }}</p>
+                            </div>
+                        </div>
+                        <div class="gcash-instruction-step">
+                            <span class="gcash-step-num">4</span>
+                            <div>
+                                <strong>Copy your reference number</strong>
+                                <p>Paste it below after sending</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Your GCash Number *</label>
+                        <input type="tel" class="form-control"
+                            :class="{ 'input-error': paymentErrors.gcashNumber }"
+                            v-model="paymentForm.gcashNumber"
+                            @input="clearPaymentError('gcashNumber')"
+                            maxlength="11"
+                            placeholder="e.g. 09171234567">
+                        <div role="alert" v-if="paymentErrors.gcashNumber" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ paymentErrors.gcashNumber }}
+                        </div>
+                        <div class="field-hint" v-if="paymentForm.gcashNumber"><i class="fa-solid fa-circle-info"></i> Auto-filled from your profile number</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>GCash Reference Code *</label>
+                        <div class="gcash-ref-row">
+                            <input type="text" class="form-control"
+                                :class="{ 'input-error': paymentErrors.gcashReference }"
+                                v-model="paymentForm.gcashReference"
+                                @input="clearPaymentError('gcashReference')"
+                                placeholder="e.g. GC123456789">
+                            <button type="button" class="btn btn-secondary"
+                                @click="paymentForm.gcashReference = generateGcashReference(); clearPaymentError('gcashReference')"
+                                title="Generate a new reference code">
+                                <i class="fa-solid fa-rotate"></i> Generate
+                            </button>
+                        </div>
+                        <div role="alert" v-if="paymentErrors.gcashReference" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ paymentErrors.gcashReference }}
+                        </div>
+                        <div class="field-hint"><i class="fa-solid fa-circle-info"></i> Auto-generated for this demo — tap Generate for a new code, or paste the one from your GCash receipt</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Order Summary -->
+            <div class="checkout-summary-col">
+                <div class="glass-card checkout-summary-card">
+                    <h2 class="checkout-section-title"><i class="fa-solid fa-receipt"></i> Payment Summary</h2>
+
+                    <div class="checkout-summary-items">
+                        <div class="checkout-summary-item" v-for="item in cart" :key="item.lineId || item.itemId">
+                            <div class="checkout-item-info">
+                                <bouquet-thumb v-if="item.customizations && item.customizations.bouquet"
+                                    :c="item.customizations" class="checkout-item-img"></bouquet-thumb>
+                                <img v-else-if="getProductImage(item.itemId) && !imageLoadErrors[item.itemId]"
+                                    :src="getProductImage(item.itemId)" :alt="item.itemName" class="checkout-item-img"
+                                    loading="lazy" @error="imageLoadErrors[item.itemId] = true">
+                                <div class="checkout-item-text">
+                                    <strong>{{ item.itemName }}</strong>
+                                    <span class="cell-subtext">x{{ item.quantity }} × ₱{{ item.unitPrice.toLocaleString() }}</span>
+                                    <span class="cell-subtext checkout-custom-line" v-if="item.customizations">
+                                        {{ item.customizations.wrapperColor }} wrapper · {{ item.customizations.ribbonColor }} ribbon
+                                        <template v-if="item.customizations.message"> · letter attached</template>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="checkout-item-total">₱{{ (item.unitPrice * item.quantity).toLocaleString() }}</div>
+                        </div>
+                    </div>
+
+                    <div class="checkout-summary-totals">
+                        <div class="checkout-total-row">
+                            <span>Items ({{ cartCount }})</span>
+                            <span>₱{{ cartTotal.toLocaleString() }}</span>
+                        </div>
+                        <div class="checkout-total-row">
+                            <span>Delivery Fee <span class="cell-subtext">· {{ deliveryZoneLabel }}</span></span>
+                            <span>₱{{ deliveryFee.toLocaleString() }}</span>
+                        </div>
+                        <div class="checkout-total-row checkout-grand-total">
+                            <span>Amount to Pay</span>
+                            <span>₱{{ checkoutTotal.toLocaleString() }}</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary checkout-place-btn"
+                        @click="processPayment()"
+                        :disabled="paymentSubmitting">
+                        <i class="fa-solid fa-circle-check" v-if="!paymentSubmitting && !paymentVerifying"></i>
+                        <i class="fa-solid fa-spinner fa-spin" v-if="paymentSubmitting"></i>
+                        {{ paymentVerifying ? 'Verifying payment with GCash...'
+                          : (paymentSubmitting ? 'Processing...' : 'I Have Paid — Confirm') }}
+                    </button>
+
+                    <p class="payment-verify-note" v-if="paymentVerifying" role="status">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        Checking your reference code. Please don't close this page.
+                    </p>
+
+                    <button class="btn btn-secondary checkout-back-btn" @click="navigateTo('checkout')" :disabled="paymentSubmitting">
+                        <i class="fa-solid fa-arrow-left"></i> Back to Checkout
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- TOAST -->
+    <div class="toast-container" v-if="toast.show">
+        <div class="toast" :class="'toast-' + toast.type" role="alert"><i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i><span>{{ toast.message }}</span></div>
+    </div>
+
+    <footer class="app-footer">
+        <p><strong>Blooms by Jen</strong> • Handmade Flower Shop Management System</p>
+    </footer>
+
+</div>
+
+<script defer src="../JS/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,349 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Your Bouquet - Blooms by Jen</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 Framework -->
+    <script defer src="../JS/vue.global.prod.js"></script>
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+<body>
+
+<div id="app" v-cloak>
+
+    <!-- CUSTOMER NAVIGATION BAR -->
+    <nav class="navbar customer-navbar">
+        <div class="brand-logo">
+            <div class="brand-logo-icon">
+                <i class="fa-solid fa-spa icon-white"></i>
+            </div>
+            <div>
+                <span class="brand-title">Blooms by Jen</span>
+            </div>
+        </div>
+
+        <button class="mobile-toggle-btn" @click="toggleCustomerMenu" aria-label="Toggle Menu">
+            <i :class="isCustomerMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
+        </button>
+
+        <ul class="nav-links customer-nav-links" :class="{ 'mobile-active': isCustomerMenuOpen }">
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('shop')" href="shop.html">
+                    <i class="fa-solid fa-store"></i> <span>Shop</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link active" @click.prevent="navigateTo('customize')" href="customize.html">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Customize</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('cart')" href="cart.html">
+                    <i class="fa-solid fa-cart-shopping"></i> <span>Cart</span>
+                    <span class="cart-badge" :class="{ 'cart-badge-pulse': cartPulse }" v-if="cartCount > 0">{{ cartCount }}</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="navigateTo('myorders')" href="myorders.html">
+                    <i class="fa-solid fa-receipt"></i> <span>My Orders</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="navigateTo('profile')" href="profile.html">
+                    <i class="fa-solid fa-user"></i> <span>Profile</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn" class="nav-notification-item">
+                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="handleLogout" href="#">
+                    <i class="fa-solid fa-power-off"></i> <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- NOTIFICATION DROPDOWN -->
+    <div class="notification-panel" v-if="notificationsOpen" @click.self="notificationsOpen = false">
+        <div class="notification-panel-header">
+            <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+            <button class="notification-close" @click="notificationsOpen = false"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="notification-panel-body" v-if="visibleNotifications.length > 0">
+            <div class="notification-item" v-for="notif in visibleNotifications.slice(0, 10)" :key="notif.id"
+                role="button" tabindex="0" @click="openNotification(notif)" @keydown.enter="openNotification(notif)">
+                <div class="notification-icon" :class="'notif-' + notif.type">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+                <div class="notification-content">
+                    <p>{{ notif.message }}</p>
+                    <span class="notification-time">{{ new Date(notif.createdAt).toLocaleString() }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="notification-empty" v-else>
+            <i class="fa-solid fa-bell-slash"></i>
+            <p>No notifications yet</p>
+        </div>
+    </div>
+
+    <!-- CUSTOMIZE SECTION -->
+    <main class="layout-container">
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="page-title-group">
+                <h1><i class="fa-solid fa-wand-magic-sparkles"></i> Design Your Bouquet</h1>
+                <p class="page-subtitle">Pick your flower, choose a wrapper and ribbon, and write a message letter.</p>
+            </div>
+            <button class="btn btn-secondary" @click="navigateTo('shop')">
+                <i class="fa-solid fa-store"></i> Back to Shop
+            </button>
+        </div>
+
+        <div class="customizer-page-grid">
+            <!-- Left: Steps -->
+            <div class="glass-card customizer-form-card">
+                <!-- Step 1: Flowers -->
+                <div class="customizer-section">
+                    <h4 class="customizer-section-title">
+                        <span class="customizer-step">1</span> Choose Your Flowers
+                        <span class="customizer-optional">{{ filledSlots }}/6 chosen</span>
+                    </h4>
+
+                    <!-- Flower kind gallery -->
+                    <div class="flower-gallery-types">
+                        <button type="button" class="flower-type-card"
+                            v-for="t in FLOWER_TYPE_LIST" :key="t"
+                            :class="{ 'flower-type-selected': flowerBrush.type === t }"
+                            @click="flowerBrush.type = t">
+                            <img :src="flowerThumb(t, flowerBrush.color)" :alt="t" loading="lazy">
+                            <span>{{ t }}</span>
+                        </button>
+                    </div>
+
+                    <!-- Flower color + actions -->
+                    <div class="flower-gallery-colors">
+                        <button type="button" class="color-swatch"
+                            v-for="c in FLOWER_COLOR_LIST" :key="c.key"
+                            :class="{ 'swatch-selected': flowerBrush.color === c.key }"
+                            @click="flowerBrush.color = c.key" :title="c.name">
+                            <span class="swatch-dot" :style="{ background: c.hex }"></span>
+                            <span class="swatch-name">{{ c.name }}</span>
+                        </button>
+                        <div class="flower-gallery-actions">
+                            <button type="button" class="btn btn-sm btn-secondary" @click="fillEmptySlots">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Fill empty slots
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" @click="clearSlots">
+                                <i class="fa-solid fa-eraser"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 6 slots -->
+                    <div class="customizer-slot-row" :class="{ 'slot-error': customErrors.slots }">
+                        <button type="button" class="flower-slot" v-for="(s, i) in bouquetSlots" :key="i"
+                            :class="{ 'slot-active': activeSlot === i, 'slot-filled': !!s }"
+                            @click="s ? activeSlot = i : placeInSlot(i)">
+                            <img v-if="s" :src="slotFlowerSrc(i)" :alt="s.type">
+                            <i v-else class="fa-solid fa-plus"></i>
+                            <span class="slot-num">{{ i + 1 }}</span>
+                            <span class="slot-clear" v-if="s" @click.stop="clearSlot(i)">
+                                <i class="fa-solid fa-xmark"></i>
+                            </span>
+                        </button>
+                    </div>
+                    <p class="flower-hint">
+                        <i class="fa-solid fa-circle-info"></i>
+                        Pick a kind and a color above, then click a slot or a hole in the preview.
+                        All 6 slots must be filled to add to cart.
+                    </p>
+                    <div class="field-error" v-if="customErrors.slots">{{ customErrors.slots }}</div>
+                    <div class="field-error" v-if="customErrors.itemId">{{ customErrors.itemId }}</div>
+                </div>
+
+                <!-- Step 2: Wrapper -->
+                <div class="customizer-section">
+                    <h4 class="customizer-section-title">
+                        <span class="customizer-step">2</span> Choose Your Wrapper
+                    </h4>
+                    <div class="customizer-swatches" :class="{ 'swatch-error': customErrors.wrapperColor }">
+                        <button type="button" class="color-swatch" v-for="w in WRAPPER_OPTIONS" :key="w.name"
+                            :class="{ 'swatch-selected': customForm.wrapperColor === w.name }"
+                            @click="setWrapper(w.name)" :title="w.name">
+                            <span class="swatch-dot" :style="{ background: w.hex }"></span>
+                            <span class="swatch-name">{{ w.name }}</span>
+                            <i class="fa-solid fa-check swatch-check" v-if="customForm.wrapperColor === w.name"></i>
+                        </button>
+                    </div>
+                    <div class="field-error" v-if="customErrors.wrapperColor">{{ customErrors.wrapperColor }}</div>
+                </div>
+
+                <!-- Step 3: Ribbon -->
+                <div class="customizer-section">
+                    <h4 class="customizer-section-title">
+                        <span class="customizer-step">3</span> Choose Your Ribbon
+                    </h4>
+                    <div class="customizer-swatches" :class="{ 'swatch-error': customErrors.ribbonColor }">
+                        <button type="button" class="color-swatch" v-for="r in RIBBON_OPTIONS" :key="r.name"
+                            :class="{ 'swatch-selected': customForm.ribbonColor === r.name }"
+                            @click="setRibbon(r.name)" :title="r.name">
+                            <span class="swatch-dot" :style="{ background: r.hex }"></span>
+                            <span class="swatch-name">{{ r.name }}</span>
+                            <i class="fa-solid fa-check swatch-check" v-if="customForm.ribbonColor === r.name"></i>
+                        </button>
+                    </div>
+                    <div class="field-error" v-if="customErrors.ribbonColor">{{ customErrors.ribbonColor }}</div>
+                </div>
+
+                <!-- Step 4: Message Letter -->
+                <div class="customizer-section">
+                    <h4 class="customizer-section-title">
+                        <span class="customizer-step">4</span> Write Your Message Letter
+                        <span class="customizer-optional">(optional)</span>
+                    </h4>
+                    <div class="letter-paper">
+                        <textarea class="letter-textarea" v-model="customForm.message" rows="4" maxlength="200"
+                            placeholder="Dear {name}, wishing you joy and happiness..."></textarea>
+                        <div class="letter-counter" :class="{ 'letter-counter-max': (customForm.message || '').length >= 200 }">
+                            {{ (customForm.message || '').length }}/200
+                        </div>
+                    </div>
+                    <div class="field-error" v-if="customErrors.message">{{ customErrors.message }}</div>
+                </div>
+
+                <!-- Step 5: Quantity -->
+                <div class="customizer-section">
+                    <h4 class="customizer-section-title">
+                        <span class="customizer-step">5</span> Quantity
+                    </h4>
+                    <div class="customizer-qty-row">
+                        <button type="button" class="btn btn-sm btn-secondary cart-qty-btn"
+                            @click="customForm.quantity = Math.max(1, Number(customForm.quantity) - 1)"
+                            :disabled="Number(customForm.quantity) <= 1">
+                            <i class="fa-solid fa-minus"></i>
+                        </button>
+                        <input type="number" class="form-control customizer-qty-input" v-model.number="customForm.quantity"
+                            min="1" :max="selectedCustomFlower ? selectedCustomFlower.stock : 99">
+                        <button type="button" class="btn btn-sm btn-secondary cart-qty-btn"
+                            @click="customForm.quantity = Math.min(selectedCustomFlower ? selectedCustomFlower.stock : 99, Number(customForm.quantity) + 1)">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                        <span class="stock-indicator-info" v-if="selectedCustomFlower">
+                            Max: {{ selectedCustomFlower.stock }}
+                        </span>
+                    </div>
+                    <div class="field-error" v-if="customErrors.quantity">{{ customErrors.quantity }}</div>
+                </div>
+            </div>
+
+            <!-- Right: Live Preview -->
+            <div class="customizer-preview-col">
+                <div class="glass-card customizer-preview-card">
+                    <h3 class="customizer-preview-title"><i class="fa-solid fa-eye"></i> Live Preview</h3>
+
+                    <!-- Layered bouquet: flowers behind the wrapper, visible through
+                         the 6 holes; wrapper on top; ribbon bow above everything -->
+                    <div class="bouquet-preview" v-if="!previewLayerError.wrapper">
+                        <div class="bouquet-flower" v-for="(hole, i) in PREVIEW_HOLES" :key="i"
+                            :class="{ 'bouquet-hole-empty': !bouquetSlots[i], 'bouquet-hole-active': activeSlot === i && !bouquetSlots[i] }"
+                            :style="[previewHoleStyle(hole), bouquetSlots[i] ? { backgroundImage: 'url(' + slotFlowerSrc(i) + ')' } : {}]"
+                            @click="placeInSlot(i)">
+                            <span class="bouquet-hole-num" v-if="!bouquetSlots[i]">{{ i + 1 }}</span>
+                        </div>
+                        <img class="bouquet-layer" :src="bouquetPreview.wrapperSrc" alt="Bouquet wrapper"
+                            @error="markPreviewError('wrapper')">
+                        <img class="bouquet-layer" :src="bouquetPreview.bowSrc" alt="Bouquet ribbon"
+                            @error="markPreviewError('bow')">
+                        <div class="bouquet-preview-ribbon-note" v-if="previewLayerError.bow">
+                            <i class="fa-solid fa-ribbon"></i>
+                        </div>
+                    </div>
+                    <div class="customizer-preview-image customizer-preview-placeholder" v-else>
+                        <i class="fa-solid fa-fleur"></i>
+                        <span>Preview unavailable</span>
+                    </div>
+
+                    <h4 class="customizer-preview-name">
+                        {{ bouquetFlowerSummary || 'Choose 6 flowers to begin' }}
+                    </h4>
+                    <div class="customizer-preview-price" v-if="filledSlots > 0 && selectedCustomFlower">
+                        ₱{{ customizerPrice.toLocaleString() }}
+                        <span class="customizer-preview-unit" v-if="Number(customForm.quantity) > 1">
+                            (₱{{ Number(selectedCustomFlower.unitPrice).toLocaleString() }} × {{ customForm.quantity }})
+                        </span>
+                    </div>
+
+                    <div class="customizer-preview-tags">
+                        <span class="cart-custom-tag" v-if="customForm.wrapperColor">
+                            <i class="fa-solid fa-gift"></i> {{ customForm.wrapperColor }} wrapper
+                        </span>
+                        <span class="cart-custom-tag" v-if="customForm.ribbonColor">
+                            <i class="fa-solid fa-ribbon"></i> {{ customForm.ribbonColor }} ribbon
+                        </span>
+                    </div>
+
+                    <div class="customizer-preview-letter" v-if="customForm.message">
+                        <div class="customizer-preview-letter-label">
+                            <i class="fa-solid fa-envelope-open-text"></i> Your letter
+                        </div>
+                        <div class="customizer-preview-letter-text">"{{ customForm.message }}"</div>
+                    </div>
+                    <div class="customizer-preview-letter customizer-preview-letter-empty" v-else>
+                        <i class="fa-solid fa-envelope"></i> No message letter
+                    </div>
+
+                    <div class="customizer-preview-note">
+                        <i class="fa-solid fa-circle-check"></i> Customization is free of charge
+                    </div>
+
+                    <button class="btn btn-primary customizer-add-btn" @click="addCustomToCart">
+                        <i class="fa-solid fa-cart-plus"></i> Add to Cart
+                    </button>
+                    <div class="customizer-req-note" :class="{ 'req-ok': canAddCustom }">
+                        <i class="fa-solid" :class="canAddCustom ? 'fa-circle-check' : 'fa-circle-exclamation'"></i>
+                        <span>
+                            {{ filledSlots }}/6 flowers ·
+                            wrapper {{ customForm.wrapperColor ? '✓' : 'missing' }} ·
+                            ribbon {{ customForm.ribbonColor ? '✓' : 'missing' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast-container" v-if="toast.show">
+        <div class="toast" :class="'toast-' + toast.type" role="alert">
+            <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
+            <span>{{ toast.message }}</span>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+        <p><strong>Blooms by Jen</strong> • Handmade Flower Shop Management System</p>
+    </footer>
+
+</div>
+
+<!-- Application Logic -->
+<script defer src="../JS/app.js"></script>
+</body>
+</html>

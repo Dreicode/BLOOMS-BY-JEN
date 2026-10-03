@@ -1,0 +1,369 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account - Blooms by Jen</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 Framework -->
+    <script defer src="../JS/vue.global.prod.js"></script>
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+
+<body>
+    <div id="app-loading" style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;">
+        <div style="text-align:center;">
+            <div style="width:40px;height:40px;border:4px solid #fecdd3;border-top-color:#e11d48;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem;"></div>
+            <p style="color:#64748b;">Loading Blooms by Jen...</p>
+        </div>
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+    <div id="app" v-cloak>
+
+        <!-- NAVIGATION BAR -->
+        <nav class="navbar">
+            <div class="brand-logo">
+                <div class="brand-logo-icon">
+                    <i class="fa-solid fa-spa icon-white"></i>
+                </div>
+                <div>
+                    <span class="brand-title">Blooms by Jen</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- REGISTRATION SECTION -->
+        <main class="layout-container register-wrapper">
+
+            <!-- Registration Form -->
+            <div class="glass-card register-card" v-if="!registrationSuccess">
+                <div class="register-header">
+                    <div class="brand-logo-icon register-logo-icon">
+                        <i class="fa-solid fa-user-plus"></i>
+                    </div>
+                    <h2>Create Your Account</h2>
+                    <p class="page-subtitle">Join Blooms by Jen to manage your orders</p>
+                </div>
+
+                <!-- Registration Errors -->
+                <div role="alert" v-if="registerErrors.general" class="alert-box alert-error">
+                    <i class="fa-solid fa-circle-exclamation alert-icon-lg"></i>
+                    {{ registerErrors.general }}
+                </div>
+
+                <!-- Rate Limit Warning -->
+                <div v-if="registerRateLimited" class="alert-box alert-error">
+                    <i class="fa-solid fa-clock alert-icon-lg"></i>
+                    Too many registration attempts. Please wait <strong>{{ registerRateLimitSeconds }}</strong> seconds before trying again.
+                </div>
+
+                <form @submit.prevent="handleRegister" novalidate>
+                    <!-- First / Last Name -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="regFirstName">First Name *</label>
+                            <input type="text" id="regFirstName" class="form-control"
+                                :class="{ 'input-error': registerErrors.firstName }"
+                                v-model="registerForm.firstName"
+                                @input="clearRegisterError('firstName')"
+                                placeholder="e.g. Maria"
+                                :disabled="registerRateLimited"
+                                autocomplete="given-name">
+                            <div role="alert" v-if="registerErrors.firstName" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ registerErrors.firstName }}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="regLastName">Last Name *</label>
+                            <input type="text" id="regLastName" class="form-control"
+                                :class="{ 'input-error': registerErrors.lastName }"
+                                v-model="registerForm.lastName"
+                                @input="clearRegisterError('lastName')"
+                                placeholder="e.g. Santos"
+                                :disabled="registerRateLimited"
+                                autocomplete="family-name">
+                            <div role="alert" v-if="registerErrors.lastName" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ registerErrors.lastName }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="form-group">
+                        <label for="regEmail">Email Address *</label>
+                        <input type="email" id="regEmail" class="form-control"
+                            :class="{ 'input-error': registerErrors.email }"
+                            v-model="registerForm.email"
+                            @input="clearRegisterError('email')"
+                            placeholder="e.g. maria@example.com"
+                            :disabled="registerRateLimited"
+                            autocomplete="email">
+                        <div role="alert" v-if="registerErrors.email" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ registerErrors.email }}
+                        </div>
+                    </div>
+
+                    <!-- Phone Number -->
+                    <div class="form-group">
+                        <label for="regPhone">Phone Number *</label>
+                        <input type="tel" id="regPhone" class="form-control" maxlength="11"
+                            :class="{ 'input-error': registerErrors.phone }"
+                            v-model="registerForm.phone"
+                            @input="clearRegisterError('phone')"
+                            placeholder="09XXXXXXXXX"
+                            :disabled="registerRateLimited"
+                            autocomplete="tel">
+                        <div role="alert" v-if="registerErrors.phone" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ registerErrors.phone }}
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="regStreet">Street Address *</label>
+                            <input type="text" id="regStreet" class="form-control"
+                                :class="{ 'input-error': registerErrors.street }"
+                                v-model="registerForm.street"
+                                @input="clearRegisterError('street')"
+                                placeholder="e.g. 123 Rizal Street"
+                                :disabled="registerRateLimited"
+                                autocomplete="address-line1">
+                            <div role="alert" v-if="registerErrors.street" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ registerErrors.street }}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="regApartment">Apartment / Suite <span class="label-optional">(optional)</span></label>
+                            <input type="text" id="regApartment" class="form-control"
+                                v-model="registerForm.apartment"
+                                placeholder="e.g. Unit 4B"
+                                :disabled="registerRateLimited"
+                                autocomplete="address-line2">
+                        </div>
+                    </div>
+
+                    <!-- State/Province + City/Municipality (autocomplete, filtered) -->
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="regProvince">State / Province *</label>
+                            <div class="autocomplete-wrapper">
+                                <input type="text" id="regProvince" class="form-control" autocomplete="off"
+                                    role="combobox" aria-autocomplete="list" aria-haspopup="listbox"
+                                    :aria-expanded="provinceMenuOpen ? 'true' : 'false'"
+                                    :class="{ 'input-error': registerErrors.province }"
+                                    v-model="registerForm.province"
+                                    @input="onProvinceInput"
+                                    @focus="provinceMenuOpen = true"
+                                    @blur="provinceMenuOpen = false"
+                                    @keydown="onAutocompleteKeydown($event, 'province')"
+                                    placeholder="Type to search province"
+                                    :disabled="registerRateLimited">
+                                <div class="autocomplete-panel" v-if="provinceMenuOpen" role="listbox">
+                                    <ul class="autocomplete-menu" v-if="provinceSuggestions.length">
+                                        <li v-for="(prov, i) in provinceSuggestions" :key="prov" role="option"
+                                            :class="{ 'autocomplete-active': i === provinceHighlight }"
+                                            @mousedown.prevent @click="selectProvince(prov)"
+                                            @mouseenter="provinceHighlight = i">{{ prov }}</li>
+                                    </ul>
+                                    <div class="autocomplete-empty" v-else @mousedown.prevent>
+                                        <i class="fa-solid fa-magnifying-glass"></i> No matching province
+                                    </div>
+                                </div>
+                            </div>
+                            <div role="alert" v-if="registerErrors.province" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ registerErrors.province }}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="regCity">City / Municipality *</label>
+                            <div class="autocomplete-wrapper">
+                                <input type="text" id="regCity" class="form-control" autocomplete="off"
+                                    role="combobox" aria-autocomplete="list" aria-haspopup="listbox"
+                                    :aria-expanded="cityMenuOpen ? 'true' : 'false'"
+                                    :class="{ 'input-error': registerErrors.city }"
+                                    v-model="registerForm.city"
+                                    @input="onCityInput"
+                                    @focus="cityMenuOpen = isProvinceValid"
+                                    @blur="cityMenuOpen = false"
+                                    @keydown="onAutocompleteKeydown($event, 'city')"
+                                    :placeholder="isProvinceValid ? 'Type to search city' : 'Select a State/Province first'"
+                                    :disabled="registerRateLimited || !isProvinceValid">
+                                <div class="autocomplete-panel" v-if="cityMenuOpen" role="listbox">
+                                    <ul class="autocomplete-menu" v-if="citySuggestions.length">
+                                        <li v-for="(city, i) in citySuggestions" :key="city" role="option"
+                                            :class="{ 'autocomplete-active': i === cityHighlight }"
+                                            @mousedown.prevent @click="selectCity(city)"
+                                            @mouseenter="cityHighlight = i">{{ city }}</li>
+                                    </ul>
+                                    <div class="autocomplete-empty" v-else @mousedown.prevent>
+                                        <i class="fa-solid fa-magnifying-glass"></i> No matching city
+                                    </div>
+                                </div>
+                            </div>
+                            <div role="alert" v-if="registerErrors.city" class="field-error">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ registerErrors.city }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="form-group">
+                        <label for="regPassword">Password *</label>
+                        <div class="input-icon-wrapper">
+                            <input :type="registerForm.showPassword ? 'text' : 'password'" id="regPassword"
+                                class="form-control"
+                                :class="{ 'input-error': registerErrors.password }"
+                                v-model="registerForm.password"
+                                @input="onPasswordInput"
+                                placeholder="Create a strong password"
+                                :disabled="registerRateLimited"
+                                autocomplete="new-password">
+                            <i :class="registerForm.showPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"
+                                @click="registerForm.showPassword = !registerForm.showPassword"></i>
+                        </div>
+                        <div role="alert" v-if="registerErrors.password" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ registerErrors.password }}
+                        </div>
+
+                        <!-- Password Requirements Checklist -->
+                        <div class="password-requirements" v-if="registerForm.password">
+                            <div class="pw-req" :class="pwChecks.length ? 'pw-ok' : 'pw-fail'">
+                                <i :class="pwChecks.length ? 'fa-solid fa-check-circle' : 'fa-solid fa-circle-xmark'"></i>
+                                At least 6 characters
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Confirm Password -->
+                    <div class="form-group">
+                        <label for="regConfirmPassword">Confirm Password *</label>
+                        <div class="input-icon-wrapper">
+                            <input :type="registerForm.showPassword ? 'text' : 'password'" id="regConfirmPassword"
+                                class="form-control"
+                                :class="{ 'input-error': registerErrors.confirmPassword }"
+                                v-model="registerForm.confirmPassword"
+                                @input="clearRegisterError('confirmPassword')"
+                                placeholder="Re-enter your password"
+                                :disabled="registerRateLimited"
+                                autocomplete="new-password">
+                            <i :class="registerForm.showPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"
+                                @click="registerForm.showPassword = !registerForm.showPassword"></i>
+                        </div>
+                        <div role="alert" v-if="registerErrors.confirmPassword" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ registerErrors.confirmPassword }}
+                        </div>
+                        <div v-if="registerForm.confirmPassword && registerForm.password && registerForm.confirmPassword === registerForm.password && !registerErrors.confirmPassword" class="pw-match-ok">
+                            <i class="fa-solid fa-check-circle"></i> Passwords match
+                        </div>
+                    </div>
+
+                    <!-- Terms Checkbox -->
+                    <div class="form-group terms-group">
+                        <label class="terms-checkbox-label" :class="{ 'terms-error': registerErrors.terms }">
+                            <input type="checkbox" id="regTerms"
+                                v-model="registerForm.terms"
+                                @change="clearRegisterError('terms')"
+                                :disabled="registerRateLimited">
+                            <span class="terms-checkmark"></span>
+                            <span class="terms-text">
+                                I agree to the <a href="#" @click.prevent class="terms-link">Terms of Service</a> and
+                                <a href="#" @click.prevent class="terms-link">Privacy Policy</a> *
+                            </span>
+                        </label>
+                        <div role="alert" v-if="registerErrors.terms" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ registerErrors.terms }}
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn btn-primary btn-full-width"
+                        :disabled="registerRateLimited || registerSubmitting">
+                        <i class="fa-solid fa-user-plus" v-if="!registerSubmitting"></i>
+                        <i class="fa-solid fa-spinner fa-spin" v-if="registerSubmitting"></i>
+                        {{ registerSubmitting ? 'Creating Account...' : 'Create Account' }}
+                    </button>
+                </form>
+
+                <!-- Links -->
+                <div class="register-links">
+                    <a @click.prevent="navigateTo('login')" href="login.html" class="register-link">
+                        <i class="fa-solid fa-right-to-bracket"></i> Already have an account? Sign in
+                    </a>
+                    <a @click.prevent="navigateTo('landing')" href="landingpage.html" class="register-link">
+                        <i class="fa-solid fa-arrow-left"></i> Back to Landing Page
+                    </a>
+                </div>
+            </div>
+
+            <!-- Registration Success / Email Verification -->
+            <div class="glass-card register-card" v-if="registrationSuccess">
+                <div class="register-success">
+                    <div class="register-success-icon">
+                        <i class="fa-solid fa-envelope-circle-check"></i>
+                    </div>
+                    <h2>Check Your Email</h2>
+                    <p class="register-success-text">
+                        We've sent a verification link to
+                        <strong>{{ registerForm.email }}</strong>
+                    </p>
+                    <p class="register-success-note">
+                        Click the link in the email to verify your account. You can only log in after verification.
+                    </p>
+
+                    <!-- Demo: Verification Link (replace with real email in production) -->
+                    <div class="demo-verify-box">
+                        <p class="demo-verify-label">
+                            <i class="fa-solid fa-flask"></i> Demo Mode - Verification Link:
+                        </p>
+                        <button class="btn btn-primary" @click="verifyEmail()">
+                            <i class="fa-solid fa-envelope-open-text"></i> Click to Verify Email (Demo)
+                        </button>
+                        <p class="demo-verify-note">
+                            In production, this would be sent to your email inbox.
+                        </p>
+                    </div>
+
+                    <div class="register-success-actions">
+                        <button class="btn btn-secondary" @click="navigateTo('login')">
+                            <i class="fa-solid fa-right-to-bracket"></i> Go to Login
+                        </button>
+                        <button class="btn btn-outline" @click="registrationSuccess = false">
+                            <i class="fa-solid fa-arrow-left"></i> Register Another
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- TOAST NOTIFICATION -->
+        <div class="toast-container" v-if="toast.show">
+            <div class="toast" :class="'toast-' + toast.type" role="alert">
+                <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
+                <span>{{ toast.message }}</span>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="app-footer">
+            <p><strong>Blooms by Jen</strong> • Handmade Flower Shop Management System</p>
+        </footer>
+
+    </div>
+
+    <!-- PH location data (provinces & cities) + Application Logic -->
+    <script defer src="../JS/ph-locations.js"></script>
+    <script defer src="../JS/app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,249 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Cart - Blooms by Jen</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 Framework -->
+    <script defer src="../JS/vue.global.prod.js"></script>
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+<body>
+
+<div id="app" v-cloak>
+
+    <!-- CUSTOMER NAVIGATION BAR -->
+    <nav class="navbar customer-navbar">
+        <div class="brand-logo">
+            <div class="brand-logo-icon">
+                <i class="fa-solid fa-spa icon-white"></i>
+            </div>
+            <div>
+                <span class="brand-title">Blooms by Jen</span>
+            </div>
+        </div>
+
+        <button class="mobile-toggle-btn" @click="toggleCustomerMenu" aria-label="Toggle Menu">
+            <i :class="isCustomerMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
+        </button>
+
+        <ul class="nav-links customer-nav-links" :class="{ 'mobile-active': isCustomerMenuOpen }">
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('shop')" href="shop.html">
+                    <i class="fa-solid fa-store"></i> <span>Shop</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link" @click.prevent="navigateTo('customize')" href="customize.html">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Customize</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-link active" @click.prevent="navigateTo('cart')" href="cart.html">
+                    <i class="fa-solid fa-cart-shopping"></i> <span>Cart</span>
+                    <span class="cart-badge" :class="{ 'cart-badge-pulse': cartPulse }" v-if="cartCount > 0">{{ cartCount }}</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="navigateTo('myorders')" href="myorders.html">
+                    <i class="fa-solid fa-receipt"></i> <span>My Orders</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="navigateTo('profile')" href="profile.html">
+                    <i class="fa-solid fa-user"></i> <span>Profile</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn" class="nav-notification-item">
+                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+                </a>
+            </li>
+            <li v-if="isLoggedIn">
+                <a class="nav-link" @click.prevent="handleLogout" href="#">
+                    <i class="fa-solid fa-power-off"></i> <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- NOTIFICATION DROPDOWN -->
+    <div class="notification-panel" v-if="notificationsOpen" @click.self="notificationsOpen = false">
+        <div class="notification-panel-header">
+            <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+            <button class="notification-close" @click="notificationsOpen = false"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="notification-panel-body" v-if="visibleNotifications.length > 0">
+            <div class="notification-item" v-for="notif in visibleNotifications.slice(0, 10)" :key="notif.id"
+                role="button" tabindex="0" @click="openNotification(notif)" @keydown.enter="openNotification(notif)">
+                <div class="notification-icon" :class="'notif-' + notif.type">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+                <div class="notification-content">
+                    <p>{{ notif.message }}</p>
+                    <span class="notification-time">{{ new Date(notif.createdAt).toLocaleString() }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="notification-empty" v-else>
+            <i class="fa-solid fa-bell-slash"></i>
+            <p>No notifications yet</p>
+        </div>
+    </div>
+
+    <!-- CART SECTION -->
+    <main class="layout-container">
+
+        <div class="page-header">
+            <div class="page-title-group">
+                <h1>My Cart</h1>
+                <p class="page-subtitle">Review your selected items before checkout.</p>
+            </div>
+            <div class="header-btn-group">
+                <button class="btn btn-secondary" v-if="cart.length > 0" @click="clearCart()">
+                    <i class="fa-solid fa-trash"></i> Clear Cart
+                </button>
+                <button class="btn btn-primary" @click="navigateTo('shop')">
+                    <i class="fa-solid fa-store"></i> Continue Shopping
+                </button>
+            </div>
+        </div>
+
+        <!-- Cart Items -->
+        <div class="glass-card" v-if="cart.length > 0">
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Unit Price</th>
+                            <th>Quantity</th>
+                            <th>Subtotal</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="item in cart" :key="item.lineId || item.itemId" :class="{ 'cart-row-short': item.quantity > getLiveStock(item.itemId) }">
+                            <td>
+                                <div class="cart-item-cell">
+                                    <bouquet-thumb v-if="item.customizations && item.customizations.bouquet"
+                                        :c="item.customizations" class="cart-item-img"></bouquet-thumb>
+                                    <img v-else-if="getProductImage(item.itemId) && !imageLoadErrors[item.itemId]"
+                                        :src="getProductImage(item.itemId)" :alt="item.itemName" class="cart-item-img"
+                                        loading="lazy" @error="imageLoadErrors[item.itemId] = true">
+                                    <div class="cart-item-details">
+                                        <strong>{{ item.itemName }}</strong>
+                                        <div class="cell-subtext">Stock: {{ getLiveStock(item.itemId) }}</div>
+                                        <div class="cart-custom-tags" v-if="item.customizations">
+                                            <span class="cart-custom-tag" v-if="item.customizations.wrapperColor">
+                                                <i class="fa-solid fa-gift"></i> Wrapper: {{ item.customizations.wrapperColor }}
+                                            </span>
+                                            <span class="cart-custom-tag" v-if="item.customizations.ribbonColor">
+                                                <i class="fa-solid fa-ribbon"></i> Ribbon: {{ item.customizations.ribbonColor }}
+                                            </span>
+                                            <span class="cart-custom-tag cart-custom-letter"
+                                                v-if="item.customizations.message">
+                                                <i class="fa-solid fa-envelope"></i> "{{ item.customizations.message }}"
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="cart-stock-warning" v-if="item.quantity > getLiveStock(item.itemId)">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    Only {{ getLiveStock(item.itemId) }} left — reduce quantity to continue
+                                </div>
+                            </td>
+                            <td>₱{{ item.unitPrice.toLocaleString() }}</td>
+                            <td>
+                                <div class="cart-qty-controls">
+                                    <button class="btn btn-sm btn-secondary cart-qty-btn"
+                                        @click="updateCartQuantity(item, item.quantity - 1)"
+                                        :disabled="item.quantity <= 1">
+                                        <i class="fa-solid fa-minus"></i>
+                                    </button>
+                                    <input type="number" class="form-control cart-qty-input"
+                                        :value="item.quantity"
+                                        @change="updateCartQuantity(item, $event.target.value)"
+                                        min="1" :max="getLiveStock(item.itemId)">
+                                    <button class="btn btn-sm btn-secondary cart-qty-btn"
+                                        @click="updateCartQuantity(item, item.quantity + 1)"
+                                        :disabled="item.quantity >= getLiveStock(item.itemId)">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="cell-bold">₱{{ (item.unitPrice * item.quantity).toLocaleString() }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger" @click="removeFromCart(item.lineId || item.itemId)">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Cart Summary -->
+            <div class="cart-summary">
+                <div class="cart-summary-row">
+                    <span>Items ({{ cartCount }})</span>
+                    <span>₱{{ cartTotal.toLocaleString() }}</span>
+                </div>
+                <div class="cart-summary-row cart-summary-total">
+                    <span>Total</span>
+                    <span>₱{{ cartTotal.toLocaleString() }}</span>
+                </div>
+                <p class="cart-delivery-note">
+                    <i class="fa-solid fa-truck"></i> Delivery fee is calculated at checkout based on destination.
+                </p>
+                <div class="cart-stock-blocker" v-if="cartStockIssues.length > 0">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    {{ cartStockIssues.length }} item(s) exceed available stock. Adjust quantities to continue.
+                </div>
+                <button class="btn btn-primary cart-checkout-btn" @click="navigateTo('checkout')"
+                    :disabled="cartStockIssues.length > 0">
+                    <i class="fa-solid fa-lock"></i> Proceed to Checkout
+                </button>
+            </div>
+        </div>
+
+        <!-- Empty Cart -->
+        <div class="glass-card shop-empty" v-else>
+            <i class="fa-solid fa-cart-shopping shop-empty-icon"></i>
+            <h3>Your Cart is Empty</h3>
+            <p>Add some beautiful bouquets to your cart!</p>
+            <button class="btn btn-primary" @click="navigateTo('shop')" style="margin-top: 1rem;">
+                <i class="fa-solid fa-store"></i> Shop Bouquets
+            </button>
+        </div>
+
+    </main>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast-container" v-if="toast.show">
+        <div class="toast" :class="'toast-' + toast.type" role="alert">
+            <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
+            <span>{{ toast.message }}</span>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+        <p><strong>Blooms by Jen</strong> • Handmade Flower Shop Management System</p>
+    </footer>
+
+</div>
+
+<!-- Application Logic -->
+<script defer src="../JS/app.js"></script>
+</body>
+</html>
