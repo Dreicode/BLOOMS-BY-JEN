@@ -241,7 +241,8 @@ body.dark-mode .navbar {
 .brand-title {
     font-size: 1.4rem;
     font-weight: 800;
-    color: var(--primary-gradient);
+    color: var(--primary, #ec4899);
+    background: var(--primary-gradient);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -480,30 +481,13 @@ body.dark-mode .form-control {
     position: relative;
 }
 
-.input-icon-wrapper i {
+.input-icon-wrapper > i {
     position: absolute;
     right: 1rem;
     top: 50%;
     transform: translateY(-50%);
     color: var(--slate-600);
     cursor: pointer;
-}
-
-.demo-fill-btn {
-    font-size: 0.85rem;
-    color: var(--rose-600);
-    background: var(--rose-50);
-    border: 1px dashed var(--rose-300);
-    padding: 0.4rem 0.8rem;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    margin-bottom: 1.2rem;
-    display: inline-block;
-    transition: var(--transition);
-}
-
-.demo-fill-btn:hover {
-    background: var(--rose-100);
 }
 
 /* --------------------------------------------------------------------------
@@ -690,7 +674,9 @@ body.dark-mode .custom-table td {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
+    /* 100% of the viewport, not 100vw — 100vw includes the scrollbar width and
+       makes the overlay (and the page under it) a few pixels too wide */
+    width: 100%;
     height: 100vh;
     background: rgba(15, 23, 42, 0.6);
     backdrop-filter: blur(4px);
@@ -740,6 +726,36 @@ body.dark-mode .custom-table td {
     background: rgba(248, 250, 252, 0.5);
 }
 
+/* Confirm modal logo — tinted by the confirm tone (danger / primary) */
+.confirm-modal-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+}
+
+.confirm-logo-danger {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.confirm-logo-primary {
+    background: var(--primary-gradient);
+    color: #ffffff;
+    box-shadow: 0 4px 15px rgba(236, 72, 153, 0.35);
+}
+
+/* Logout badge — mirrors the navbar brand logo (gradient tile, fa-spa) */
+.confirm-logo-brand {
+    background: var(--primary-gradient);
+    color: #ffffff;
+    border-radius: 17px;
+    box-shadow: 0 6px 18px rgba(236, 72, 153, 0.4);
+}
+
 /* Forms layout grid inside modal */
 .form-grid {
     display: grid;
@@ -751,9 +767,125 @@ body.dark-mode .custom-table td {
     grid-column: span 2;
 }
 
-/* Register form grid: labels stay on one line so paired inputs align */
-.register-card .form-grid label {
-    white-space: nowrap;
+/* ==========================================================================
+   Multi-item Order Modal Styles
+   ========================================================================== */
+.modal-wide {
+    max-width: 900px;
+}
+
+.order-lines-section {
+    background: var(--slate-50);
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.section-header h4 {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.order-lines-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.order-line-row {
+    display: grid;
+    grid-template-columns: 2.5fr 0.8fr 1fr 1fr 0.7fr;
+    gap: 0.75rem;
+    align-items: end;
+    padding: 0.75rem;
+    background: #fff;
+    border: 1px solid var(--slate-200);
+    border-radius: 8px;
+}
+
+.line-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.line-field label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--slate-600);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.line-field input,
+.line-field select {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.6rem;
+}
+
+.line-field-price,
+.line-field-total {
+    background: var(--slate-50);
+}
+
+.line-field-total input {
+    background: var(--rose-50);
+    font-weight: 600;
+    color: var(--rose-700);
+}
+
+.line-field-actions {
+    display: flex;
+    align-items: end;
+}
+
+.order-lines-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--slate-500);
+    font-style: italic;
+}
+
+.order-totals {
+    background: var(--slate-50);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.totals-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+}
+
+.totals-row.totals-final {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--rose-700);
+    border-top: 2px solid var(--rose-200);
+    padding-top: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+/* Responsive: stack order line fields on mobile */
+@media (max-width: 768px) {
+    .order-line-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .line-field-actions {
+        justify-content: flex-end;
+    }
 }
 
 .label-optional {
@@ -973,11 +1105,30 @@ body.dark-mode .summary-stat-item {
         display: block;
     }
 
+    .brand-logo {
+        gap: 0.55rem;
+        min-width: 0;
+    }
+
+    .brand-logo-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 1rem;
+        border-radius: 10px;
+        flex: 0 0 auto;
+        box-shadow: 0 3px 8px rgba(236, 72, 153, 0.3);
+    }
+
+    .brand-title {
+        font-size: 1.05rem;
+        white-space: nowrap;
+    }
+
     .nav-links {
         position: fixed;
         top: 65px;
         left: 0;
-        width: 100vw;
+        width: 100%;
         background: rgba(255, 255, 255, 0.98);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
@@ -1005,6 +1156,15 @@ body.dark-mode .summary-stat-item {
         padding: 0.8rem 1.2rem;
         border-radius: 0.75rem;
         font-size: 1.05rem;
+    }
+
+    /* Bell sits in the header bar, not inside the collapsible menu */
+    .nav-notification-btn {
+        width: auto;
+        flex: 0 0 auto;
+        padding: 0.5rem 0.7rem;
+        border-radius: 9999px;
+        font-size: 1rem;
     }
 
     .form-control {
@@ -1186,11 +1346,6 @@ body.dark-mode .summary-stat-item {
     margin-bottom: 1rem;
 }
 
-.login-demo-wrapper {
-    text-align: left;
-    margin-bottom: 1rem;
-}
-
 .btn-full-width {
     width: 100%;
     padding: 0.8rem;
@@ -1303,6 +1458,47 @@ body.dark-mode .summary-stat-item {
     color: var(--slate-600);
 }
 
+/* Line items with photo thumbnail (Orders table) */
+.order-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.order-line {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+.order-line-name {
+    font-size: 0.9rem;
+    line-height: 1.35;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.order-item-thumb {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    border-radius: 10px;
+    border: 1px solid var(--slate-200);
+    background: var(--slate-50, #fff);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    object-fit: cover;
+    color: var(--rose-500);
+    font-size: 1rem;
+    overflow: hidden;
+}
+
+.order-item-thumb-placeholder {
+    color: var(--rose-400);
+}
+
 .cell-sm {
     font-size: 0.85rem;
 }
@@ -1385,6 +1581,14 @@ body.dark-mode .summary-stat-item {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
+}
+
+/* The two cards can't shrink below their text width, so two columns push the
+   page past the viewport on phones. Stack them like .form-grid does. */
+@media (max-width: 768px) {
+    .reports-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .reports-list {
@@ -1807,6 +2011,49 @@ body.dark-mode .input-calculated-price {
     color: var(--rose-600);
 }
 
+.shop-product-meta {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    color: var(--slate-500);
+}
+
+.shop-meta-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.shop-meta-rating .fa-star {
+    font-size: 0.72rem;
+    color: var(--amber-500);
+}
+
+.shop-meta-norating .fa-star {
+    color: var(--slate-300);
+}
+
+.shop-meta-rating strong {
+    font-weight: 800;
+    color: var(--slate-800);
+}
+
+.shop-meta-count {
+    font-weight: 500;
+    color: var(--slate-500);
+}
+
+.shop-meta-sold {
+    font-weight: 600;
+    color: var(--slate-500);
+    white-space: nowrap;
+}
+
 .shop-order-btn {
     width: 100%;
     margin-top: auto;
@@ -2181,9 +2428,94 @@ body.dark-mode .input-calculated-price {
 
 /* Responsive Customer Styles */
 @media (max-width: 768px) {
+    /* Shop: 2 cards per row, equal width, consistent gaps (mobile only) */
     .shop-grid {
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+    }
+
+    .shop-product-card {
+        padding: 0.75rem;
+        text-align: left;
+        align-items: stretch;
+    }
+
+    .shop-product-card:hover {
+        transform: none;
+    }
+
+    /* Category chips cost vertical space on 2-up cards, but stock is buying
+       information for a flower shop, so it stays visible (styled below) */
+    .shop-product-category {
+        display: none;
+    }
+
+    .shop-product-media {
+        margin-bottom: 0.6rem;
+    }
+
+    .shop-product-img {
+        max-width: 100%;
+        width: 100%;
+        height: 130px;
+        border-radius: 12px;
+    }
+
+    .shop-product-icon {
+        width: 56px;
+        height: 56px;
+        font-size: 1.5rem;
+        box-shadow: none;
+    }
+
+    /* Short name: two lines max so every card stays the same height */
+    .shop-product-name {
+        font-family: var(--font-sans);
+        font-size: 0.9rem;
+        font-weight: 700;
+        line-height: 1.25;
+        margin-bottom: 0.3rem;
+        min-height: 2.5em;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        overflow: hidden;
+        word-break: break-word;
+    }
+
+    .shop-product-price {
+        font-size: 1.1rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Compact stock line: "Only 4 left" / "12 available" / "Out of stock" */
+    .shop-product-stock {
+        justify-content: flex-start;
+        gap: 0.3rem;
+        margin: -0.1rem 0 0.55rem;
+        font-size: 0.73rem;
+        line-height: 1.2;
+    }
+
+    .shop-product-stock i {
+        font-size: 0.66rem;
+    }
+
+    /* Rating + sold count pinned to the bottom of the text stack */
+    .shop-product-meta {
+        display: flex;
+        flex-wrap: wrap;
+        margin-top: auto;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--glass-border);
+    }
+
+    .shop-order-btn {
+        margin-top: 0.6rem;
+        padding: 0.55rem 0.5rem;
+        font-size: 0.8rem;
     }
 
     .customer-order-actions {
@@ -2250,7 +2582,34 @@ body.dark-mode .input-calculated-price {
 
 @media (max-width: 480px) {
     .shop-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.6rem;
+    }
+
+    .shop-product-card {
+        padding: 0.6rem;
+    }
+
+    .shop-product-img {
+        height: 116px;
+    }
+
+    .shop-product-name {
+        font-size: 0.84rem;
+    }
+
+    .shop-product-price {
+        font-size: 1rem;
+    }
+
+    .shop-product-meta {
+        font-size: 0.72rem;
+        gap: 0.3rem;
+    }
+
+    .shop-order-btn {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.35rem;
     }
 
     .track-info-grid {
@@ -2481,6 +2840,34 @@ body.dark-mode .input-calculated-price {
     margin-bottom: 1.5rem;
 }
 
+/* Auto-fill control under the password field (demo owner login) */
+.login-demo-wrapper {
+    display: block;
+    text-align: left;
+    margin: -0.35rem 0 0.9rem;
+}
+
+.demo-fill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 1rem;
+    border-radius: 999px;
+    background: #ec4899;
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 14px -6px rgba(236, 72, 153, 0.55);
+    transition: var(--transition);
+}
+
+.demo-fill-btn:hover {
+    background: #db2777;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 18px -6px rgba(236, 72, 153, 0.6);
+}
+
 .demo-verify-label {
     font-size: 0.85rem;
     font-weight: 700;
@@ -2506,6 +2893,211 @@ body.dark-mode .input-calculated-price {
     gap: 0.75rem;
     justify-content: center;
     flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   Registration refinements: loading screen, form sections, toggle, modals
+   ========================================================================== */
+
+/* Inline loading screen (lives in the HTML until Vue mounts) */
+#app-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: var(--font-sans);
+}
+
+#app-loading .app-loading-inner {
+    text-align: center;
+}
+
+#app-loading .app-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--rose-200);
+    border-top-color: var(--rose-600);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+#app-loading p {
+    color: var(--slate-500);
+    margin: 0;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Grouped form sections: Personal / Delivery / Account Security */
+.form-section {
+    margin-bottom: 1.75rem;
+}
+
+.form-section + .form-section {
+    padding-top: 1.5rem;
+    border-top: 1px dashed var(--slate-200);
+}
+
+.form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--rose-600);
+    margin-bottom: 1.1rem;
+}
+
+.form-section-title i {
+    font-size: 0.9rem;
+}
+
+/* Helper text below a field (e.g. PH mobile number example) */
+.field-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--slate-500);
+    margin-top: 0.4rem;
+}
+
+/* Password visibility toggle — a real button for keyboard/screen reader use */
+.input-icon-wrapper .form-control {
+    padding-right: 2.9rem;
+}
+
+.input-icon-wrapper .password-toggle {
+    position: absolute;
+    right: 0.4rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0.5rem;
+    color: var(--slate-600);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.input-icon-wrapper .password-toggle:hover {
+    color: var(--rose-600);
+    background: var(--rose-50);
+}
+
+.input-icon-wrapper .password-toggle:focus-visible {
+    outline: 2px solid var(--rose-500);
+    outline-offset: 1px;
+}
+
+.input-icon-wrapper .password-toggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* PH location dropdowns */
+select.form-control {
+    cursor: pointer;
+}
+
+/* Verified account confirmation */
+.register-verified-icon {
+    color: var(--emerald-500);
+}
+
+.verified-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: var(--emerald-50);
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+    border-radius: 0.75rem;
+    padding: 0.9rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+/* Terms of Service / Privacy Policy modal */
+.legal-modal {
+    max-width: 560px;
+    text-align: left;
+}
+
+.legal-modal .modal-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.1rem;
+    color: var(--slate-900);
+}
+
+.modal-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--slate-100);
+    color: var(--slate-600);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: var(--transition);
+}
+
+.modal-close-btn:hover {
+    background: var(--rose-100);
+    color: var(--rose-600);
+}
+
+.modal-close-btn:focus-visible {
+    outline: 2px solid var(--rose-500);
+    outline-offset: 2px;
+}
+
+.legal-body {
+    color: var(--slate-700);
+    font-size: 0.9rem;
+    line-height: 1.65;
+    text-align: left;
+}
+
+.legal-body h4 {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin: 1.1rem 0 0.35rem;
+}
+
+.legal-body p {
+    margin-bottom: 0.6rem;
+}
+
+.legal-body ul {
+    margin: 0 0 0.75rem 1.15rem;
+    padding: 0;
+}
+
+.legal-body li {
+    margin-bottom: 0.3rem;
 }
 
 /* Alert Boxes */
@@ -2659,11 +3251,516 @@ body.dark-mode .input-calculated-price {
 }
 
 /* ==========================================================================
+   Cart — mobile-first vertical list
+   ========================================================================== */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.cart-page {
+    padding-bottom: 8.5rem;
+}
+
+.cart-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.cart-list-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    box-shadow: var(--glass-shadow);
+}
+
+.cart-list-count {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--slate-500);
+}
+
+/* Checkbox row ---------------------------------------------------------- */
+.cart-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    min-width: 44px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.cart-check-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--slate-700);
+}
+
+.cart-cb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    border: 2px solid var(--slate-300);
+    border-radius: 6px;
+    background: #ffffff;
+    display: inline-grid;
+    place-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: var(--transition);
+}
+
+.cart-cb::before {
+    content: "";
+    width: 11px;
+    height: 11px;
+    transform: scale(0);
+    transition: transform 0.15s ease-in-out;
+    box-shadow: inset 1em 1em #ffffff;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+.cart-cb:checked {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.cart-cb:checked::before {
+    transform: scale(1);
+}
+
+.cart-cb:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* Row ------------------------------------------------------------------- */
+.cart-row {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid var(--slate-200);
+    background: var(--rose-100);
+    touch-action: pan-y;
+}
+
+.cart-row.is-selected {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+}
+
+.cart-row-slide {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: start;
+    gap: 0.7rem;
+    padding: 0.8rem;
+    background: #ffffff;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+}
+
+.cart-row.is-selected .cart-row-slide {
+    background: #fffafd;
+}
+
+.cart-row.is-short .cart-row-slide {
+    background: #fef2f2;
+}
+
+.cart-row-check {
+    align-self: center;
+    min-width: 40px;
+    justify-content: center;
+}
+
+.cart-row-media {
+    align-self: start;
+}
+
+.cart-row-img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 1px solid var(--slate-200);
+    background: var(--slate-50);
+    display: block;
+}
+
+.cart-row-img-fallback {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    color: var(--slate-300);
+    font-size: 1.2rem;
+}
+
+.cart-row-body {
+    min-width: 0;
+}
+
+.cart-row-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.cart-row-name {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--slate-800);
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.cart-row-unit {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--slate-500);
+    white-space: nowrap;
+}
+
+.cart-row-stock {
+    margin-top: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--slate-500);
+}
+
+.cart-row-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.6rem;
+}
+
+.cart-row-line {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--slate-900);
+    white-space: nowrap;
+}
+
+.cart-row-delete {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 104px;
+    z-index: 0;
+    border: 0;
+    background: var(--rose-600);
+    color: #ffffff;
+    font-size: 1.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.cart-row-delete:active {
+    background: var(--rose-700);
+}
+
+/* Quantity stepper — big enough for thumbs ------------------------------ */
+.cart-qty-controls {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    background: var(--slate-100);
+    border: 1px solid var(--slate-200);
+    border-radius: 999px;
+    padding: 0.2rem;
+}
+
+.cart-qty-btn {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 50%;
+    background: #ffffff;
+    color: var(--slate-700);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+    transition: var(--transition);
+}
+
+.cart-qty-btn:active {
+    transform: scale(0.94);
+}
+
+.cart-qty-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.cart-qty-input {
+    width: 46px;
+    min-height: 40px;
+    padding: 0.25rem;
+    text-align: center;
+    font-weight: 800;
+    font-size: 0.95rem;
+    border: 0;
+    background: transparent;
+    color: var(--slate-900);
+    -moz-appearance: textfield;
+}
+
+.cart-qty-input::-webkit-outer-spin-button,
+.cart-qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Sticky bottom action bar --------------------------------------------- */
+.cart-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--glass-border);
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.10);
+}
+
+body.dark-mode .cart-dock {
+    background: rgba(15, 23, 42, 0.96);
+}
+
+.cart-dock-check {
+    flex-shrink: 0;
+}
+
+.cart-dock-total {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.cart-dock-count {
+    font-size: 0.72rem;
+    color: var(--slate-500);
+    font-weight: 600;
+}
+
+.cart-dock-amount {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--slate-900);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.dark-mode .cart-dock-amount {
+    color: var(--slate-100);
+}
+
+.cart-dock-cta {
+    flex-shrink: 0;
+    min-height: 46px;
+    padding: 0 1.15rem;
+    font-weight: 700;
+    margin-left: auto;
+}
+
+.cart-dock-cta:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Empty state ------------------------------------------------------------ */
+.cart-empty {
+    text-align: center;
+    padding: 2.75rem 1.25rem;
+}
+
+.cart-empty-icon {
+    width: 76px;
+    height: 76px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    background: var(--rose-50);
+    border: 1px solid var(--rose-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.9rem;
+    color: var(--rose-400);
+}
+
+.cart-empty h3 {
+    color: var(--slate-800);
+    margin-bottom: 0.35rem;
+    font-size: 1.25rem;
+}
+
+.cart-empty p {
+    color: var(--slate-600);
+    margin-bottom: 1.35rem;
+}
+
+.cart-empty-cta {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto 0.65rem;
+    min-height: 46px;
+}
+
+.cart-empty-cta:last-child {
+    margin-bottom: 0;
+}
+
+/* Cart responsive --------------------------------------------------------- */
+@media (max-width: 600px) {
+    .cart-page {
+        padding-bottom: 9.5rem;
+    }
+
+    .cart-row-slide {
+        grid-template-columns: auto auto minmax(0, 1fr);
+        gap: 0.55rem;
+        padding: 0.7rem;
+    }
+
+    .cart-row-img {
+        width: 56px;
+        height: 56px;
+    }
+
+    .cart-row-head {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.1rem;
+    }
+
+    .cart-row-name {
+        font-size: 0.93rem;
+    }
+
+    .cart-row-foot {
+        gap: 0.5rem;
+    }
+
+    .cart-row-line {
+        font-size: 0.95rem;
+    }
+
+    .cart-qty-btn {
+        width: 44px;
+        height: 44px;
+    }
+
+    .cart-qty-input {
+        min-height: 44px;
+    }
+
+    .cart-dock {
+        gap: 0.5rem;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .cart-dock-check .cart-check-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .cart-dock-amount {
+        font-size: 1.05rem;
+    }
+
+    .cart-dock-cta {
+        padding: 0 0.9rem;
+    }
+}
+
+@media (max-width: 380px) {
+    .cart-row-slide {
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+            "check media"
+            "check body";
+    }
+
+    .cart-row-check {
+        grid-area: check;
+        align-self: start;
+        padding-top: 0.4rem;
+    }
+
+    .cart-row-media {
+        grid-area: media;
+    }
+
+    .cart-row-body {
+        grid-area: body;
+    }
+
+    .cart-dock-cta {
+        min-width: 48px;
+        padding: 0 0.85rem;
+    }
+}
+
+/* ==========================================================================
    Notification Bell & Panel
    ========================================================================== */
-.nav-notification-item .nav-link {
+.nav-notification-item .nav-link,
+.nav-notification-btn {
     position: relative;
     padding: 0.5rem 0.75rem;
+}
+
+.nav-notification-btn {
+    flex: 0 0 auto;
+    align-self: center;
 }
 
 .notification-badge {
@@ -3331,15 +4428,27 @@ body.dark-mode .input-calculated-price {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    /* Pinned straight above the sticky cart dock so it never hides behind it */
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    z-index: 59;
+    margin: 0;
     background: #fef2f2;
-    border: 1px solid var(--rose-200);
+    border: 0;
+    border-top: 1px solid var(--rose-200);
     color: var(--rose-700, #b91c1c);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 600;
-    padding: 0.65rem 0.85rem;
-    border-radius: 10px;
-    margin-bottom: 0.75rem;
+    padding: 0.55rem 1rem;
+    border-radius: 0;
     text-align: center;
+}
+
+body.dark-mode .cart-stock-blocker {
+    background: rgba(127, 29, 29, 0.35);
+    border-top-color: rgba(244, 63, 94, 0.35);
 }
 
 .cart-delivery-note {
@@ -3922,6 +5031,13 @@ body.dark-mode .input-calculated-price {
     grid-template-columns: 1fr 340px;
     gap: 1.5rem;
     align-items: start;
+    /* Grid items default to min-width:auto, so a wide child (a long name, a
+       fixed-width control) widens the whole track past the viewport. */
+    min-width: 0;
+}
+
+.customizer-page-grid > * {
+    min-width: 0;
 }
 
 .customizer-form-card {
@@ -4067,10 +5183,24 @@ body.dark-mode .input-calculated-price {
     margin-bottom: 0.75rem;
 }
 
+/* Swatches live in their own row so mobile can make it scroll sideways
+   without dragging the Fill/Clear actions along with it */
+.flower-color-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
+}
+
 .flower-gallery-actions {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 0.4rem;
     margin-left: auto;
+    min-width: 0;
 }
 
 .customizer-slot-row {
@@ -4317,6 +5447,355 @@ body.dark-mode .input-calculated-price {
     .customizer-preview-col {
         position: static;
         order: -1;
+    }
+}
+
+/* ============================================================
+   Mobile bouquet builder (Customize page)
+   Desktop keeps the two-column layout; phones get a step-by-step
+   builder: preview first, scrollable picker, 3x2 slots, sticky CTA.
+   ============================================================ */
+
+/* Builder extras are desktop-hidden; the ≤768px block below turns them on */
+.mobile-only {
+    display: none;
+}
+
+.flower-instruction {
+    align-items: center;
+    gap: 0.45rem;
+    margin: -0.2rem 0 0.7rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--slate-700);
+}
+
+.flower-status {
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.5rem 0 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--emerald-600, #059669);
+}
+
+.slot-active-hint {
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.5rem 0 0;
+    font-size: 0.8rem;
+    color: var(--slate-600);
+}
+
+.slot-active-hint i {
+    color: var(--rose-500, #f43f5e);
+}
+
+/* Sticky thumb bar: hidden on desktop, mirrors the cart dock design */
+.customizer-dock {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--glass-border);
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.10);
+}
+
+body.dark-mode .customizer-dock {
+    background: rgba(15, 23, 42, 0.96);
+}
+
+.customizer-dock-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.customizer-dock-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--slate-500);
+    font-weight: 600;
+}
+
+.customizer-dock-amount {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--slate-900);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.dark-mode .customizer-dock-amount {
+    color: var(--slate-100);
+}
+
+.customizer-dock-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+    color: var(--amber-600, #d97706);
+}
+
+.customizer-dock-hint.is-ok {
+    color: var(--emerald-600, #059669);
+}
+
+.customizer-dock-cta {
+    flex-shrink: 0;
+    min-height: 46px;
+    padding: 0 1.1rem;
+    font-weight: 700;
+}
+
+.customizer-dock-cta:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+    /* Turn on the builder extras */
+    .flower-instruction,
+    .flower-status,
+    .slot-active-hint {
+        display: flex;
+    }
+
+    .customizer-dock {
+        display: flex;
+    }
+
+    /* Room for the sticky bar so the footer never hides behind it */
+    .customize-page {
+        padding-bottom: 7rem;
+    }
+
+    /* Compact page header */
+    .customize-page .page-header h1 {
+        font-size: 1.2rem;
+    }
+
+    .customize-page .page-header .btn {
+        align-self: flex-start;
+        min-height: 44px;
+    }
+
+    /* Cards / steps */
+    .customizer-form-card,
+    .customizer-preview-card {
+        padding: 1rem;
+    }
+
+    .customizer-section {
+        padding: 1rem 0;
+    }
+
+    .customizer-section-title {
+        font-size: 1rem;
+        margin-bottom: 0.6rem;
+    }
+
+    /* Preview stays compact, centred and pinned while the steps scroll */
+    .customizer-page-grid {
+        display: flex;
+        flex-direction: column;
+        /* Base rule sets align-items:start (vertical for grid). Inside a column
+           flex it becomes the horizontal axis, so the cards would shrink-wrap
+           to their widest child — the 12-wide flower row — and blow the page
+           out sideways. Stretch keeps them at viewport width. */
+        align-items: stretch;
+        gap: 1rem;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .customizer-preview-col {
+        position: sticky;
+        top: 68px;
+        z-index: 40;
+    }
+
+    .customizer-preview-card {
+        gap: 0.55rem;
+        text-align: center;
+        padding: 0.85rem;
+        /* Opaque so the steps scrolling underneath never show through */
+        background: var(--bg-main, #ffffff);
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+    }
+
+    .customizer-preview-title {
+        justify-content: center;
+        font-size: 0.95rem;
+    }
+
+    .customizer-preview-card .bouquet-preview,
+    .customizer-preview-card .customizer-preview-placeholder {
+        max-width: 210px;
+        width: 100%;
+        margin: 0 auto;
+    }
+
+    .customizer-preview-name {
+        font-size: 0.85rem;
+    }
+
+    /* Price, tags, letter and the in-card CTA move to the sticky bar */
+    .customizer-preview-price,
+    .customizer-preview-tags,
+    .customizer-preview-letter,
+    .customizer-preview-note,
+    .customizer-add-btn,
+    .customizer-req-note,
+    .flower-hint {
+        display: none;
+    }
+
+    /* Flower picker: one horizontally scrollable row */
+    .flower-gallery-types {
+        display: flex;
+        flex-wrap: nowrap;
+        grid-template-columns: none;
+        gap: 0.5rem;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        margin: 0 -1rem 0.75rem;
+        padding: 0 1rem 0.25rem;
+    }
+
+    .flower-gallery-types::-webkit-scrollbar {
+        display: none;
+    }
+
+    .flower-type-card {
+        flex: 0 0 auto;
+        width: 78px;
+        min-height: 44px;
+        padding: 0.45rem 0.3rem;
+        scroll-snap-align: start;
+    }
+
+    /* Colors: one sideways-scrolling line of circular swatches, with the
+       Fill/Clear actions on their own row underneath */
+    .flower-gallery-colors {
+        flex-direction: column;
+        /* Must be nowrap: with wrap, the line's cross size becomes the widest
+           item's max-content (551px swatch row) and blows the page wide */
+        flex-wrap: nowrap;
+        align-items: stretch;
+        gap: 0.6rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .flower-color-row {
+        flex: 0 0 auto;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 0.5rem;
+        margin: 0 -1rem;
+        padding: 0 1rem 0.25rem;
+    }
+
+    .flower-color-row::-webkit-scrollbar {
+        display: none;
+    }
+
+    .flower-color-row .color-swatch {
+        flex: 0 0 auto;
+        scroll-snap-align: start;
+        min-height: 44px;
+        padding: 0.4rem 0.75rem;
+    }
+
+    .flower-gallery-colors .color-swatch {
+        min-height: 44px;
+        padding: 0.4rem 0.75rem;
+    }
+
+    .flower-gallery-actions {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .flower-gallery-actions .btn {
+        min-height: 44px;
+    }
+
+    /* The 6 slots become a 3 x 2 grid of big touch targets */
+    .customizer-slot-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.6rem;
+    }
+
+    .flower-slot {
+        width: auto;
+        height: auto;
+        min-height: 84px;
+        aspect-ratio: 1 / 1;
+        border-radius: 14px;
+    }
+
+    .flower-slot.slot-active {
+        border-width: 3px;
+        box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.22);
+    }
+
+    .flower-slot .slot-clear {
+        display: flex;
+        width: 26px;
+        height: 26px;
+        font-size: 0.78rem;
+    }
+
+    /* Wrapper + ribbon: compact pill rows that scroll sideways */
+    .customizer-swatches {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -1rem;
+        padding: 0 1rem 0.25rem;
+    }
+
+    .customizer-swatches::-webkit-scrollbar {
+        display: none;
+    }
+
+    .customizer-swatches .color-swatch {
+        flex: 0 0 auto;
+        min-height: 44px;
+        padding: 0.45rem 0.8rem;
+    }
+
+    /* Quantity steppers sized for thumbs */
+    .customizer-qty-row .cart-qty-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .customizer-qty-input {
+        width: 64px;
+        min-height: 44px;
     }
 }
 
@@ -4647,6 +6126,21 @@ body.dark-mode #blooms-page-loader {
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
 }
 
+/* Custom bouquet previews in admin orders table */
+.order-bouquet-previews {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.order-bouquet-thumb {
+    width: 72px;
+    height: 72px;
+    border-radius: 10px;
+    border: 1px solid var(--slate-200, #e2e8f0);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
 .order-bouquet-caption {
     font-size: 0.72rem;
     color: var(--slate-500, #64748b);
@@ -4654,7 +6148,123 @@ body.dark-mode #blooms-page-loader {
     line-height: 1.25;
 }
 
-/* Demo account shortcut on the login card */
-.login-demo-btn {
-    margin-top: 0.75rem;
+/* ---------- Mobile admin tables ---------- */
+@media (max-width: 768px) {
+    .table-responsive {
+        position: relative;
+    }
+
+    /* The admin tables are wider than a phone: make the sideways swipe obvious
+       and stop cells from wrapping into unreadable multi-line blocks. */
+    .table-responsive::before {
+        content: '\21F2  Swipe the table sideways to see every column';
+        display: block;
+        position: sticky;
+        left: 0;
+        margin-bottom: 0.5rem;
+        padding: 0.45rem 0.6rem;
+        border-radius: 0.5rem;
+        background: rgba(236, 72, 153, 0.08);
+        color: #9d174d;
+        font-size: 0.78rem;
+        text-align: center;
+    }
+
+    body.dark-mode .table-responsive::before {
+        background: rgba(236, 72, 153, 0.16);
+        color: #fbcfe8;
+    }
+
+    .custom-table {
+        font-size: 0.85rem;
+    }
+
+    .custom-table th,
+    .custom-table td {
+        padding: 0.6rem 0.55rem;
+        white-space: nowrap;
+    }
+
+    /* Comfortable tap targets for the row action buttons */
+    .custom-table .btn-sm {
+        padding: 0.5rem 0.7rem;
+        font-size: 0.8rem;
+    }
+
+    /* Comfortable touch targets for swatches and small buttons */
+    .color-swatch {
+        min-height: 38px;
+    }
+
+    .btn-sm {
+        min-height: 36px;
+    }
+}
+
+/* ==========================================================================
+   Back-to-top
+   ========================================================================== */
+.back-to-top {
+    position: fixed;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    z-index: 70;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    color: #ffffff;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(225, 29, 72, 0.32);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(14px) scale(0.9);
+    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.back-to-top.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+.back-to-top:hover {
+    transform: translateY(-2px) scale(1);
+    box-shadow: 0 14px 28px rgba(225, 29, 72, 0.38);
+}
+
+.back-to-top:active {
+    transform: scale(0.94);
+}
+
+.back-to-top:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+}
+
+body.dark-mode .back-to-top {
+    box-shadow: 0 10px 24px rgba(217, 70, 239, 0.42);
+}
+
+/* Toasts share this corner (z-index 200) and always win while they last */
+@media (max-width: 480px) {
+    .back-to-top {
+        right: 0.85rem;
+        width: 44px;
+        height: 44px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .back-to-top {
+        transition: none;
+        transform: none;
+    }
 }

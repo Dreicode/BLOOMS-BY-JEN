@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -12,13 +12,13 @@
         href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap"
         rel="stylesheet">
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../CSS/fontawesome/css/all.min.css">
     <!-- Vue 3 Framework -->
-    <script defer src="../JS/vue.global.prod.js"></script>
+    <script defer src="../JS/vue.global.prod.js?v=20261030"></script>
     <!-- Custom Style -->
-    <link rel="stylesheet" href="../CSS/style.css">
+    <link rel="stylesheet" href="../CSS/style.css?v=20261030">
 
-    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261030">
     </head>
 
 <body>
@@ -32,98 +32,6 @@
 
     <div id="app" v-cloak>
 
-        <!-- GLOBAL NAVIGATION BAR -->
-        <nav class="navbar">
-            <div class="brand-logo">
-                <div class="brand-logo-icon">
-                    <i class="fa-solid fa-spa icon-white"></i>
-                </div>
-                <div>
-                    <span class="brand-title">Blooms by Jen</span>
-                </div>
-            </div>
-
-            <button v-if="isLoggedIn" class="mobile-toggle-btn" @click="toggleMobileMenu"
-                aria-label="Toggle Navigation Menu">
-                <i :class="isMobileMenuOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars'"></i>
-            </button>
-
-            <!-- Admin links: only the admin sees these -->
-            <ul v-if="isAdminRole" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
-                <li>
-                    <a class="nav-link" :class="{ active: currentScreen === 'dashboard' }"
-                        @click.prevent="navigateTo('dashboard')" href="dashboard.html">
-                        <i class="fa-solid fa-chart-line"></i> <span>Dashboard</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="nav-link" :class="{ active: currentScreen === 'orders' }"
-                        @click.prevent="navigateTo('orders')" href="order.html">
-                        <i class="fa-solid fa-receipt"></i> <span>Orders</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="nav-link" :class="{ active: currentScreen === 'inventory' }"
-                        @click.prevent="navigateTo('inventory')" href="inventory.html">
-                        <i class="fa-solid fa-boxes-stacked"></i> <span>Inventory</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="nav-link" :class="{ active: currentScreen === 'sales' }"
-                        @click.prevent="navigateTo('sales')" href="sales.html">
-                        <i class="fa-solid fa-cash-register"></i> <span>Sales</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="nav-link" :class="{ active: currentScreen === 'reports' }"
-                        @click.prevent="navigateTo('reports')" href="report.html">
-                        <i class="fa-solid fa-file-invoice-dollar"></i> <span>Reports</span>
-                    </a>
-                </li>
-            </ul>
-
-            <!-- Customer links: logged-in customers never see admin links -->
-            <ul v-else-if="isLoggedIn" class="nav-links" :class="{ 'mobile-active': isMobileMenuOpen }">
-                <li>
-                    <a class="nav-link" :class="{ active: currentScreen === 'shop' }"
-                        @click.prevent="navigateTo('shop')" href="shop.html">
-                        <i class="fa-solid fa-store"></i> <span>Shop</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="nav-link" :class="{ active: currentScreen === 'customize' }"
-                        @click.prevent="navigateTo('customize')" href="customize.html">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Customize</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="nav-link" :class="{ active: currentScreen === 'cart' }"
-                        @click.prevent="navigateTo('cart')" href="cart.html">
-                        <i class="fa-solid fa-cart-shopping"></i> <span>Cart</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="nav-link" :class="{ active: currentScreen === 'myorders' }"
-                        @click.prevent="navigateTo('myorders')" href="myorders.html">
-                        <i class="fa-solid fa-receipt"></i> <span>My Orders</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="nav-link" :class="{ active: currentScreen === 'profile' }"
-                        @click.prevent="navigateTo('profile')" href="profile.html">
-                        <i class="fa-solid fa-user"></i> <span>Profile</span>
-                    </a>
-                </li>
-            </ul>
-
-            <div v-if="isLoggedIn" class="user-badge">
-                <i class="fa-solid fa-user-circle"></i>
-                <span>{{ currentUser.name }}</span>
-                <button class="btn btn-sm btn-outline ms-2" @click="handleLogout" title="Logout">
-                    <i class="fa-solid fa-power-off"></i>
-                </button>
-            </div>
-        </nav>
 
         <!-- LOGIN SECTION -->
         <main class="layout-container login-wrapper">
@@ -145,7 +53,9 @@
                         <label for="email">Email Address</label>
                         <input type="email" id="email" class="form-control" :class="{ 'input-error': loginErrors.email }" v-model="loginForm.email" @input="clearLoginErrors"
                             placeholder="Enter your email" required>
-                        <div role="alert" v-if="loginErrors.email" class="field-error">{{ loginErrors.email }}</div>
+                        <div role="alert" v-if="loginErrors.email" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ loginErrors.email }}
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -156,15 +66,19 @@
                             <i :class="loginForm.showPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"
                                 @click="loginForm.showPassword = !loginForm.showPassword"></i>
                         </div>
-                        <div role="alert" v-if="loginErrors.password" class="field-error">{{ loginErrors.password }}</div>
+                        <div role="alert" v-if="loginErrors.password" class="field-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ loginErrors.password }}
+                        </div>
+                    </div>
+
+                    <div class="login-demo-wrapper">
+                        <span class="demo-fill-btn" @click="fillDemoCredentials">
+                            <i class="fa-solid fa-key"></i> Auto-fill Demo Credentials
+                        </span>
                     </div>
 
                     <button type="submit" class="btn btn-primary btn-full-width">
                         <i class="fa-solid fa-right-to-bracket"></i> Sign In
-                    </button>
-
-                    <button type="button" class="btn btn-outline btn-full-width login-demo-btn" @click="fillDemoCredentials">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> Use Owner Demo Account
                     </button>
                 </form>
 
@@ -187,16 +101,16 @@
         <div v-if="confirmModal.show" class="modal-overlay" @click.self="confirmModal.show = false">
             <div class="modal-content" style="max-width:420px;text-align:center;">
                 <div class="modal-body" style="padding:2rem;">
-                    <div style="width:60px;height:60px;background:#fef3c7;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
-                        <i class="fa-solid fa-triangle-exclamation" style="font-size:1.8rem;color:#d97706;"></i>
+                    <div class="confirm-modal-logo" :class="'confirm-logo-' + confirmModal.confirmTone">
+                        <i class="fa-solid" :class="confirmModal.logoIcon" style="font-size:1.8rem;"></i>
                     </div>
                     <h3 style="margin-bottom:0.5rem;">{{ confirmModal.title }}</h3>
                     <p style="color:var(--slate-600);">{{ confirmModal.message }}</p>
                 </div>
                 <div class="modal-footer" style="justify-content:center;border-top:none;">
                     <button class="btn btn-secondary" @click="confirmModal.show = false">Cancel</button>
-                    <button class="btn btn-danger" @click="confirmModal.onConfirm(); confirmModal.show = false;">
-                        <i class="fa-solid fa-trash"></i> Confirm Delete
+                    <button class="btn" :class="confirmModal.confirmTone === 'danger' ? 'btn-danger' : 'btn-primary'" @click="confirmModal.onConfirm(); confirmModal.show = false;">
+                        <i class="fa-solid" :class="confirmModal.confirmIcon"></i> {{ confirmModal.confirmLabel }}
                     </button>
                 </div>
             </div>
@@ -218,7 +132,7 @@
     </div>
 
     <!-- Application Logic -->
-    <script defer src="../JS/app.js"></script>
+    <script defer src="../JS/app.js?v=20261030"></script>
 </body>
 
 </html>

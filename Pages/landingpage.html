@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -12,13 +12,13 @@
         href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap"
         rel="stylesheet">
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../CSS/fontawesome/css/all.min.css">
     <!-- Vue 3 Framework -->
-    <script defer src="../JS/vue.global.prod.js"></script>
+    <script defer src="../JS/vue.global.prod.js?v=20261030"></script>
     <!-- Custom Style -->
-    <link rel="stylesheet" href="../CSS/style.css">
+    <link rel="stylesheet" href="../CSS/style.css?v=20261030">
 
-    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261030">
     </head>
 
 <body>
@@ -30,9 +30,6 @@
             <div class="brand-logo">
                 <div class="brand-logo-icon">
                     <i class="fa-solid fa-spa icon-white"></i>
-                </div>
-                <div>
-                    <span class="brand-title">Blooms by Jen</span>
                 </div>
             </div>
 
@@ -111,7 +108,6 @@
 
             <div v-if="isLoggedIn" class="user-badge">
                 <i class="fa-solid fa-user-circle"></i>
-                <span>{{ currentUser.name }}</span>
                 <button class="btn btn-sm btn-outline ms-2" @click="handleLogout" title="Logout">
                     <i class="fa-solid fa-power-off"></i>
                 </button>
@@ -128,7 +124,7 @@
                     <h1>Crafted Floral Artistry Meets Smart Management</h1>
                     <p class="hero-subtitle">
                         Streamline custom bouquet ordering, real-time inventory tracking, and sales logs for
-                        <strong>Blooms by Jen</strong>—designed specifically for Ms. Jenelyn Ortiz.
+                        <strong>Blooms by Jen</strong> — a complete management system for independent flower shops.
                     </p>
                     <div class="hero-actions">
                         <button class="btn btn-primary" @click="navigateTo('login')">
@@ -158,7 +154,26 @@
 
         </main>
 
-        <!-- TOAST NOTIFICATION -->
+            <!-- CONFIRM MODAL -->
+    <div v-if="confirmModal.show" class="modal-overlay" @click.self="confirmModal.show = false">
+        <div class="modal-content" style="max-width:420px;text-align:center;">
+            <div class="modal-body" style="padding:2rem;">
+                <div class="confirm-modal-logo" :class="'confirm-logo-' + confirmModal.confirmTone">
+                    <i class="fa-solid" :class="confirmModal.logoIcon" style="font-size:1.8rem;"></i>
+                </div>
+                <h3 style="margin-bottom:0.5rem;">{{ confirmModal.title }}</h3>
+                <p style="color:var(--slate-600);">{{ confirmModal.message }}</p>
+            </div>
+            <div class="modal-footer" style="justify-content:center;border-top:none;">
+                <button class="btn btn-secondary" @click="confirmModal.show = false">Cancel</button>
+                <button class="btn" :class="confirmModal.confirmTone === 'danger' ? 'btn-danger' : 'btn-primary'" @click="confirmModal.onConfirm(); confirmModal.show = false;">
+                    <i class="fa-solid" :class="confirmModal.confirmIcon"></i> {{ confirmModal.confirmLabel }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+<!-- TOAST NOTIFICATION -->
         <div class="toast-container" v-if="toast.show">
             <div class="toast" :class="'toast-' + toast.type" role="alert">
                 <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
@@ -174,7 +189,7 @@
     </div>
 
     <!-- Application Logic -->
-    <script defer src="../JS/app.js"></script>
+    <script defer src="../JS/app.js?v=20261030"></script>
 </body>
 
 </html>

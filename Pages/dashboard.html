@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -12,13 +12,13 @@
         href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap"
         rel="stylesheet">
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../CSS/fontawesome/css/all.min.css">
     <!-- Vue 3 Framework -->
-    <script defer src="../JS/vue.global.prod.js"></script>
+    <script defer src="../JS/vue.global.prod.js?v=20261030"></script>
     <!-- Custom Style -->
-    <link rel="stylesheet" href="../CSS/style.css">
+    <link rel="stylesheet" href="../CSS/style.css?v=20261030">
 
-    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261030">
     </head>
 
 <body>
@@ -38,9 +38,6 @@
             <div class="brand-logo">
                 <div class="brand-logo-icon">
                     <i class="fa-solid fa-spa icon-white"></i>
-                </div>
-                <div>
-                    <span class="brand-title">Blooms by Jen</span>
                 </div>
             </div>
 
@@ -75,17 +72,16 @@
                         <i class="fa-solid fa-file-invoice-dollar"></i> <span>Reports</span>
                     </a>
                 </li>
-                <li class="nav-notification-item">
-                    <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
-                        <i class="fa-solid fa-bell"></i>
-                        <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
-                    </a>
-                </li>
+
             </ul>
+
+                <a class="nav-link nav-notification-btn" role="button" aria-label="Notifications" v-if="isAdminRole" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+                </a>
 
             <div v-if="isLoggedIn" class="user-badge">
                 <i class="fa-solid fa-user-circle"></i>
-                <span>{{ currentUser.name }}</span>
                 <button class="btn btn-sm btn-outline ms-2" @click="handleLogout" title="Logout">
                     <i class="fa-solid fa-power-off"></i>
                 </button>
@@ -121,7 +117,7 @@
             <div class="page-header">
                 <div class="page-title-group">
                     <h1>Overview Dashboard</h1>
-                    <p class="page-subtitle">Welcome back, Ms. Jenelyn Ortiz! Here is your daily shop overview.</p>
+                    <p class="page-subtitle">Welcome back, {{ currentUser.name }}! Here is your daily shop overview.</p>
                 </div>
             </div>
 
@@ -206,7 +202,7 @@
 
         <!-- ADD / EDIT ORDER MODAL -->
         <div v-if="activeModal === 'addEditOrder'" class="modal-overlay">
-            <div class="modal-content">
+            <div class="modal-content modal-wide">
                 <div class="modal-header">
                     <h3>{{ isEditingOrder ? 'Edit Custom Order' : 'Create Custom Bouquet Order' }}</h3>
                     <button class="btn btn-sm btn-secondary" @click="closeModal"><i
@@ -227,50 +223,90 @@
                         </div>
 
                         <div class="form-group form-full">
-                            <label>Bouquet Arrangement Type</label>
-                            <select class="form-control" v-model="orderForm.bouquetType" @change="onBouquetTypeChange">
-                                <option v-for="item in inventory" :key="item.id" :value="item.itemName">
-                                    {{ item.itemName }} — ₱{{ Number(item.unitPrice).toLocaleString() }} (Stock: {{
-                                    item.stock }})
-                                </option>
-                            </select>
+                            <label>Delivery Fee (PHP)</label>
+                            <input type="number" class="form-control" v-model.number="orderForm.deliveryFee" min="0" step="10" @input="recalcOrderTotals">
                         </div>
 
-                        <div class="form-full bouquet-customizer-box">
-                            <h4 class="customizer-title">
-                                <i class="fa-solid fa-palette"></i> Bouquet Customization
-                            </h4>
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Wrapping Paper Color</label>
-                                    <input type="text" class="form-control" v-model="orderForm.wrappingColor"
-                                        placeholder="e.g. Soft Blush Pink">
-                                </div>
-                                <div class="form-group">
-                                    <label>Ribbon Color</label>
-                                    <input type="text" class="form-control" v-model="orderForm.ribbonColor"
-                                        placeholder="e.g. Golden Amber Satin">
+                        <div class="form-full order-lines-section">
+                            <div class="section-header">
+                                <h4 class="customizer-title"><i class="fa-solid fa-list"></i> Order Lines</h4>
+                                <button type="button" class="btn btn-sm btn-outline" @click="addOrderLine">
+                                    <i class="fa-solid fa-plus"></i> Add Line
+                                </button>
+                            </div>
+                            <div class="order-lines-list">
+                                <template v-if="orderForm.items && orderForm.items.length > 0">
+                                    <div class="order-line-row" v-for="(line, idx) in orderForm.items" :key="idx">
+                                        <div class="line-field">
+                                            <label>Item *</label>
+                                            <select class="form-control" v-model="line.itemId" @change="recalcOrderTotals">
+                                                <option value="">Select item...</option>
+                                                <option v-for="item in inventory" :key="item.id" :value="item.id">
+                                                    {{ item.itemName }} — ₱{{ Number(item.unitPrice).toLocaleString() }} (Stock: {{ item.stock }})
+                                                </option>
+                                            </select>
+                                            <div v-if="orderErrors['item_' + idx]" class="field-error">{{ orderErrors['item_' + idx] }}</div>
+                                        </div>
+                                        <div class="line-field">
+                                            <label>Qty *</label>
+                                            <input type="number" class="form-control" v-model.number="line.quantity" min="1" @input="recalcOrderTotals" :max="getLineMaxStock(line)">
+                                            <div v-if="orderErrors['qty_' + idx]" class="field-error">{{ orderErrors['qty_' + idx] }}</div>
+                                        </div>
+                                        <div class="line-field line-field-price">
+                                            <label>Unit Price</label>
+                                            <input type="number" class="form-control" v-model.number="line.unitPrice" readonly>
+                                        </div>
+                                        <div class="line-field line-field-total">
+                                            <label>Line Total</label>
+                                            <input type="number" class="form-control" v-model.number="line.lineTotal" readonly>
+                                        </div>
+                                        <div class="line-field line-field-actions">
+                                            <label>&nbsp;</label>
+                                            <button type="button" class="btn btn-danger btn-sm" @click="removeOrderLine(idx)" title="Remove line">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div v-else class="order-lines-empty">
+                                    <p>No items added yet. Click "Add Line" to start.</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>
-                                Order Quantity
-                                <span v-if="selectedInventoryItem" class="stock-indicator-info">
-                                    (Max Stock: {{ selectedInventoryItem.stock }})
-                                </span>
-                            </label>
-                            <input type="number" class="form-control" :class="{ 'input-error': orderErrors.quantity }" v-model.number="orderForm.quantity"
-                                @input="updateOrderCalculatedPrice; clearOrderErrors()" @change="updateOrderCalculatedPrice" min="1"
-                                :max="maxOrderQuantity" required>
-                            <div v-if="orderErrors.quantity" class="field-error">{{ orderErrors.quantity }}</div>
+                        <div class="form-full order-totals">
+                            <div class="totals-row">
+                                <span>Subtotal</span>
+                                <strong>₱{{ Number(orderForm.subtotal || 0).toLocaleString() }}</strong>
+                            </div>
+                            <div class="totals-row">
+                                <span>Delivery Fee</span>
+                                <strong>₱{{ Number(orderForm.deliveryFee || 0).toLocaleString() }}</strong>
+                            </div>
+                            <div class="totals-row totals-final">
+                                <span>Total</span>
+                                <strong>₱{{ Number(orderForm.price || 0).toLocaleString() }}</strong>
+                            </div>
+                            <div class="totals-row">
+                                <span>Total Qty</span>
+                                <strong>{{ orderForm.quantity || 0 }}</strong>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>Total Price (PHP) <span class="label-badge-auto">(Auto-Calculated)</span></label>
-                            <input type="number" class="form-control input-calculated-price" v-model="orderForm.price"
-                                required min="0" readonly>
+                        <div class="form-full bouquet-customizer-box">
+                            <h4 class="customizer-title">
+                                <i class="fa-solid fa-palette"></i> Bouquet Customization (applies to all lines)
+                            </h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Wrapping Paper Color</label>
+                                    <input type="text" class="form-control" v-model="orderForm.wrappingColor" placeholder="e.g. Soft Blush Pink">
+                                </div>
+                                <div class="form-group">
+                                    <label>Ribbon Color</label>
+                                    <input type="text" class="form-control" v-model="orderForm.ribbonColor" placeholder="e.g. Golden Amber Satin">
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -306,16 +342,16 @@
         <div v-if="confirmModal.show" class="modal-overlay" @click.self="confirmModal.show = false">
             <div class="modal-content" style="max-width:420px;text-align:center;">
                 <div class="modal-body" style="padding:2rem;">
-                    <div style="width:60px;height:60px;background:#fef3c7;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
-                        <i class="fa-solid fa-triangle-exclamation" style="font-size:1.8rem;color:#d97706;"></i>
+                    <div class="confirm-modal-logo" :class="'confirm-logo-' + confirmModal.confirmTone">
+                        <i class="fa-solid" :class="confirmModal.logoIcon" style="font-size:1.8rem;"></i>
                     </div>
                     <h3 style="margin-bottom:0.5rem;">{{ confirmModal.title }}</h3>
                     <p style="color:var(--slate-600);">{{ confirmModal.message }}</p>
                 </div>
                 <div class="modal-footer" style="justify-content:center;border-top:none;">
                     <button class="btn btn-secondary" @click="confirmModal.show = false">Cancel</button>
-                    <button class="btn btn-danger" @click="confirmModal.onConfirm(); confirmModal.show = false;">
-                        <i class="fa-solid fa-trash"></i> Confirm Delete
+                    <button class="btn" :class="confirmModal.confirmTone === 'danger' ? 'btn-danger' : 'btn-primary'" @click="confirmModal.onConfirm(); confirmModal.show = false;">
+                        <i class="fa-solid" :class="confirmModal.confirmIcon"></i> {{ confirmModal.confirmLabel }}
                     </button>
                 </div>
             </div>
@@ -337,7 +373,7 @@
     </div>
 
     <!-- Application Logic -->
-    <script defer src="../JS/app.js"></script>
+    <script defer src="../JS/app.js?v=20261030"></script>
 </body>
 
 </html>

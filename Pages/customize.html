@@ -1,20 +1,20 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Design Your Bouquet - Blooms by Jen</title>
-    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261030">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../CSS/fontawesome/css/all.min.css">
     <!-- Vue 3 Framework -->
-    <script defer src="../JS/vue.global.prod.js"></script>
+    <script defer src="../JS/vue.global.prod.js?v=20261030"></script>
     <!-- Custom Style -->
-    <link rel="stylesheet" href="../CSS/style.css">
+    <link rel="stylesheet" href="../CSS/style.css?v=20261030">
 </head>
 <body>
 
@@ -62,18 +62,18 @@
                     <i class="fa-solid fa-user"></i> <span>Profile</span>
                 </a>
             </li>
-            <li v-if="isLoggedIn" class="nav-notification-item">
-                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
-                    <i class="fa-solid fa-bell"></i>
-                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
-                </a>
-            </li>
             <li v-if="isLoggedIn">
                 <a class="nav-link" @click.prevent="handleLogout" href="#">
                     <i class="fa-solid fa-power-off"></i> <span>Logout</span>
                 </a>
             </li>
+
         </ul>
+
+            <a class="nav-link nav-notification-btn" role="button" aria-label="Notifications" v-if="isLoggedIn" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                <i class="fa-solid fa-bell"></i>
+                <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+            </a>
     </nav>
 
     <!-- NOTIFICATION DROPDOWN -->
@@ -101,7 +101,7 @@
     </div>
 
     <!-- CUSTOMIZE SECTION -->
-    <main class="layout-container">
+    <main class="layout-container customize-page">
 
         <!-- Page Header -->
         <div class="page-header">
@@ -124,6 +124,11 @@
                         <span class="customizer-optional">{{ filledSlots }}/6 chosen</span>
                     </h4>
 
+                    <!-- Plain-language instruction for the tap-to-place flow (mobile) -->
+                    <p class="flower-instruction mobile-only">
+                        Select a flower and color, then tap a bouquet slot.
+                    </p>
+
                     <!-- Flower kind gallery -->
                     <div class="flower-gallery-types">
                         <button type="button" class="flower-type-card"
@@ -137,13 +142,15 @@
 
                     <!-- Flower color + actions -->
                     <div class="flower-gallery-colors">
-                        <button type="button" class="color-swatch"
-                            v-for="c in FLOWER_COLOR_LIST" :key="c.key"
-                            :class="{ 'swatch-selected': flowerBrush.color === c.key }"
-                            @click="flowerBrush.color = c.key" :title="c.name">
-                            <span class="swatch-dot" :style="{ background: c.hex }"></span>
-                            <span class="swatch-name">{{ c.name }}</span>
-                        </button>
+                        <div class="flower-color-row">
+                            <button type="button" class="color-swatch"
+                                v-for="c in FLOWER_COLOR_LIST" :key="c.key"
+                                :class="{ 'swatch-selected': flowerBrush.color === c.key }"
+                                @click="flowerBrush.color = c.key" :title="c.name">
+                                <span class="swatch-dot" :style="{ background: c.hex }"></span>
+                                <span class="swatch-name">{{ c.name }}</span>
+                            </button>
+                        </div>
                         <div class="flower-gallery-actions">
                             <button type="button" class="btn btn-sm btn-secondary" @click="fillEmptySlots">
                                 <i class="fa-solid fa-wand-magic-sparkles"></i> Fill empty slots
@@ -171,6 +178,14 @@
                         <i class="fa-solid fa-circle-info"></i>
                         Pick a kind and a color above, then click a slot or a hole in the preview.
                         All 6 slots must be filled to add to cart.
+                    </p>
+                    <!-- Feedback + current target slot (mobile builder) -->
+                    <p class="flower-status mobile-only" v-if="flowerStatusMsg">
+                        <i class="fa-solid fa-circle-check"></i> {{ flowerStatusMsg }}
+                    </p>
+                    <p class="slot-active-hint mobile-only">
+                        <i class="fa-solid fa-hand-pointer"></i>
+                        Selected slot: {{ activeSlot + 1 }} of 6
                     </p>
                     <div class="field-error" v-if="customErrors.slots">{{ customErrors.slots }}</div>
                     <div class="field-error" v-if="customErrors.itemId">{{ customErrors.itemId }}</div>
@@ -238,13 +253,13 @@
                             <i class="fa-solid fa-minus"></i>
                         </button>
                         <input type="number" class="form-control customizer-qty-input" v-model.number="customForm.quantity"
-                            min="1" :max="selectedCustomFlower ? selectedCustomFlower.stock : 99">
+                            min="1" :max="MADE_TO_ORDER_MAX">
                         <button type="button" class="btn btn-sm btn-secondary cart-qty-btn"
-                            @click="customForm.quantity = Math.min(selectedCustomFlower ? selectedCustomFlower.stock : 99, Number(customForm.quantity) + 1)">
+                            @click="customForm.quantity = Math.min(MADE_TO_ORDER_MAX, Number(customForm.quantity) + 1)">
                             <i class="fa-solid fa-plus"></i>
                         </button>
-                        <span class="stock-indicator-info" v-if="selectedCustomFlower">
-                            Max: {{ selectedCustomFlower.stock }}
+                        <span class="stock-indicator-info">
+                            <i class="fa-solid fa-circle-check"></i> Made to order
                         </span>
                     </div>
                     <div class="field-error" v-if="customErrors.quantity">{{ customErrors.quantity }}</div>
@@ -281,10 +296,10 @@
                     <h4 class="customizer-preview-name">
                         {{ bouquetFlowerSummary || 'Choose 6 flowers to begin' }}
                     </h4>
-                    <div class="customizer-preview-price" v-if="filledSlots > 0 && selectedCustomFlower">
+                    <div class="customizer-preview-price" v-if="filledSlots > 0">
                         ₱{{ customizerPrice.toLocaleString() }}
                         <span class="customizer-preview-unit" v-if="Number(customForm.quantity) > 1">
-                            (₱{{ Number(selectedCustomFlower.unitPrice).toLocaleString() }} × {{ customForm.quantity }})
+                            (₱{{ CUSTOM_BOUQUET_PRICE.toLocaleString() }} × {{ customForm.quantity }})
                         </span>
                     </div>
 
@@ -328,7 +343,45 @@
 
     </main>
 
-    <!-- TOAST NOTIFICATION -->
+    <!-- STICKY MOBILE BUY BAR (thumb-reachable price + CTA) -->
+    <div class="customizer-dock">
+        <div class="customizer-dock-info">
+            <span class="customizer-dock-label">Custom Bouquet</span>
+            <strong class="customizer-dock-amount">₱{{ customizerPrice.toLocaleString() }}</strong>
+            <span class="customizer-dock-hint" :class="{ 'is-ok': canAddCustom }">
+                <template v-if="canAddCustom">
+                    <i class="fa-solid fa-circle-check"></i> Ready to add
+                </template>
+                <template v-else-if="filledSlots >= 6 && !customForm.wrapperColor">Pick a wrapper to continue</template>
+                <template v-else-if="filledSlots >= 6 && !customForm.ribbonColor">Pick a ribbon to continue</template>
+                <template v-else-if="filledSlots >= 6">Complete the form to continue</template>
+            </span>
+        </div>
+        <button class="btn btn-primary customizer-dock-cta" :disabled="!canAddCustom" @click="addCustomToCart">
+            <i class="fa-solid fa-cart-plus"></i> Add to Cart
+        </button>
+    </div>
+
+        <!-- CONFIRM MODAL -->
+    <div v-if="confirmModal.show" class="modal-overlay" @click.self="confirmModal.show = false">
+        <div class="modal-content" style="max-width:420px;text-align:center;">
+            <div class="modal-body" style="padding:2rem;">
+                <div class="confirm-modal-logo" :class="'confirm-logo-' + confirmModal.confirmTone">
+                    <i class="fa-solid" :class="confirmModal.logoIcon" style="font-size:1.8rem;"></i>
+                </div>
+                <h3 style="margin-bottom:0.5rem;">{{ confirmModal.title }}</h3>
+                <p style="color:var(--slate-600);">{{ confirmModal.message }}</p>
+            </div>
+            <div class="modal-footer" style="justify-content:center;border-top:none;">
+                <button class="btn btn-secondary" @click="confirmModal.show = false">Cancel</button>
+                <button class="btn" :class="confirmModal.confirmTone === 'danger' ? 'btn-danger' : 'btn-primary'" @click="confirmModal.onConfirm(); confirmModal.show = false;">
+                    <i class="fa-solid" :class="confirmModal.confirmIcon"></i> {{ confirmModal.confirmLabel }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+<!-- TOAST NOTIFICATION -->
     <div class="toast-container" v-if="toast.show">
         <div class="toast" :class="'toast-' + toast.type" role="alert">
             <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
@@ -344,6 +397,6 @@
 </div>
 
 <!-- Application Logic -->
-<script defer src="../JS/app.js"></script>
+<script defer src="../JS/app.js?v=20261030"></script>
 </body>
 </html>

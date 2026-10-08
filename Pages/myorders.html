@@ -1,20 +1,20 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Orders - Blooms by Jen</title>
-    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261030">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../CSS/fontawesome/css/all.min.css">
     <!-- Vue 3 Framework -->
-    <script defer src="../JS/vue.global.prod.js"></script>
+    <script defer src="../JS/vue.global.prod.js?v=20261030"></script>
     <!-- Custom Style -->
-    <link rel="stylesheet" href="../CSS/style.css">
+    <link rel="stylesheet" href="../CSS/style.css?v=20261030">
 </head>
 <body>
 
@@ -62,18 +62,18 @@
                     <i class="fa-solid fa-user"></i> <span>Profile</span>
                 </a>
             </li>
-            <li class="nav-notification-item">
-                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
-                    <i class="fa-solid fa-bell"></i>
-                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
-                </a>
-            </li>
-            <li>
+            <li v-if="isLoggedIn">
                 <a class="nav-link" @click.prevent="handleLogout" href="#">
                     <i class="fa-solid fa-power-off"></i> <span>Logout</span>
                 </a>
             </li>
+
         </ul>
+
+            <a class="nav-link nav-notification-btn" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                <i class="fa-solid fa-bell"></i>
+                <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+            </a>
     </nav>
 
     <!-- NOTIFICATION DROPDOWN -->
@@ -133,7 +133,7 @@
                         <tr v-for="order in myOrders" :key="order.id">
                             <td class="cell-id">{{ order.id }}</td>
                             <td>
-                                <strong>{{ order.bouquetType }}</strong>
+                                <strong>{{ bouquetLabel(order) }}</strong>
                                 <span v-if="order.quantity > 1" class="badge badge-sky badge-quantity ms-1">x{{ order.quantity }}</span>
                                 <div v-if="order.customMessage" class="cell-italic-subtext">
                                     "{{ order.customMessage }}"
@@ -307,7 +307,26 @@
         </div>
     </div>
 
-    <!-- TOAST NOTIFICATION -->
+        <!-- CONFIRM MODAL -->
+    <div v-if="confirmModal.show" class="modal-overlay" @click.self="confirmModal.show = false">
+        <div class="modal-content" style="max-width:420px;text-align:center;">
+            <div class="modal-body" style="padding:2rem;">
+                <div class="confirm-modal-logo" :class="'confirm-logo-' + confirmModal.confirmTone">
+                    <i class="fa-solid" :class="confirmModal.logoIcon" style="font-size:1.8rem;"></i>
+                </div>
+                <h3 style="margin-bottom:0.5rem;">{{ confirmModal.title }}</h3>
+                <p style="color:var(--slate-600);">{{ confirmModal.message }}</p>
+            </div>
+            <div class="modal-footer" style="justify-content:center;border-top:none;">
+                <button class="btn btn-secondary" @click="confirmModal.show = false">Cancel</button>
+                <button class="btn" :class="confirmModal.confirmTone === 'danger' ? 'btn-danger' : 'btn-primary'" @click="confirmModal.onConfirm(); confirmModal.show = false;">
+                    <i class="fa-solid" :class="confirmModal.confirmIcon"></i> {{ confirmModal.confirmLabel }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+<!-- TOAST NOTIFICATION -->
     <div class="toast-container" v-if="toast.show">
         <div class="toast" :class="'toast-' + toast.type" role="alert">
             <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
@@ -323,6 +342,6 @@
 </div>
 
 <!-- Application Logic -->
-<script defer src="../JS/app.js"></script>
+<script defer src="../JS/app.js?v=20261030"></script>
 </body>
 </html>

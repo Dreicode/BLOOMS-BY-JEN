@@ -1,20 +1,20 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Cart - Blooms by Jen</title>
-    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261030">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../CSS/fontawesome/css/all.min.css">
     <!-- Vue 3 Framework -->
-    <script defer src="../JS/vue.global.prod.js"></script>
+    <script defer src="../JS/vue.global.prod.js?v=20261030"></script>
     <!-- Custom Style -->
-    <link rel="stylesheet" href="../CSS/style.css">
+    <link rel="stylesheet" href="../CSS/style.css?v=20261030">
 </head>
 <body>
 
@@ -62,18 +62,18 @@
                     <i class="fa-solid fa-user"></i> <span>Profile</span>
                 </a>
             </li>
-            <li v-if="isLoggedIn" class="nav-notification-item">
-                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
-                    <i class="fa-solid fa-bell"></i>
-                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
-                </a>
-            </li>
             <li v-if="isLoggedIn">
                 <a class="nav-link" @click.prevent="handleLogout" href="#">
                     <i class="fa-solid fa-power-off"></i> <span>Logout</span>
                 </a>
             </li>
+
         </ul>
+
+            <a class="nav-link nav-notification-btn" role="button" aria-label="Notifications" v-if="isLoggedIn" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                <i class="fa-solid fa-bell"></i>
+                <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+            </a>
     </nav>
 
     <!-- NOTIFICATION DROPDOWN -->
@@ -101,15 +101,16 @@
     </div>
 
     <!-- CART SECTION -->
-    <main class="layout-container">
+    <main class="layout-container cart-page">
 
         <div class="page-header">
             <div class="page-title-group">
                 <h1>My Cart</h1>
-                <p class="page-subtitle">Review your selected items before checkout.</p>
+                <p class="page-subtitle">Tick the items you want, then check out.</p>
             </div>
             <div class="header-btn-group">
-                <button class="btn btn-secondary" v-if="cart.length > 0" @click="clearCart()">
+                <button class="btn btn-secondary" v-if="cart.length > 0"
+                    @click="showConfirm('Clear Cart?', 'This removes all ' + cart.length + ' item(s) from your cart.', clearCart, 'Clear Cart', 'fa-trash')">
                     <i class="fa-solid fa-trash"></i> Clear Cart
                 </button>
                 <button class="btn btn-primary" @click="navigateTo('shop')">
@@ -118,117 +119,176 @@
             </div>
         </div>
 
-        <!-- Cart Items -->
-        <div class="glass-card" v-if="cart.length > 0">
-            <div class="table-responsive">
-                <table class="custom-table">
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th>Unit Price</th>
-                            <th>Quantity</th>
-                            <th>Subtotal</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="item in cart" :key="item.lineId || item.itemId" :class="{ 'cart-row-short': item.quantity > getLiveStock(item.itemId) }">
-                            <td>
-                                <div class="cart-item-cell">
-                                    <bouquet-thumb v-if="item.customizations && item.customizations.bouquet"
-                                        :c="item.customizations" class="cart-item-img"></bouquet-thumb>
-                                    <img v-else-if="getProductImage(item.itemId) && !imageLoadErrors[item.itemId]"
-                                        :src="getProductImage(item.itemId)" :alt="item.itemName" class="cart-item-img"
-                                        loading="lazy" @error="imageLoadErrors[item.itemId] = true">
-                                    <div class="cart-item-details">
-                                        <strong>{{ item.itemName }}</strong>
-                                        <div class="cell-subtext">Stock: {{ getLiveStock(item.itemId) }}</div>
-                                        <div class="cart-custom-tags" v-if="item.customizations">
-                                            <span class="cart-custom-tag" v-if="item.customizations.wrapperColor">
-                                                <i class="fa-solid fa-gift"></i> Wrapper: {{ item.customizations.wrapperColor }}
-                                            </span>
-                                            <span class="cart-custom-tag" v-if="item.customizations.ribbonColor">
-                                                <i class="fa-solid fa-ribbon"></i> Ribbon: {{ item.customizations.ribbonColor }}
-                                            </span>
-                                            <span class="cart-custom-tag cart-custom-letter"
-                                                v-if="item.customizations.message">
-                                                <i class="fa-solid fa-envelope"></i> "{{ item.customizations.message }}"
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="cart-stock-warning" v-if="item.quantity > getLiveStock(item.itemId)">
-                                    <i class="fa-solid fa-triangle-exclamation"></i>
-                                    Only {{ getLiveStock(item.itemId) }} left — reduce quantity to continue
-                                </div>
-                            </td>
-                            <td>₱{{ item.unitPrice.toLocaleString() }}</td>
-                            <td>
-                                <div class="cart-qty-controls">
-                                    <button class="btn btn-sm btn-secondary cart-qty-btn"
-                                        @click="updateCartQuantity(item, item.quantity - 1)"
-                                        :disabled="item.quantity <= 1">
-                                        <i class="fa-solid fa-minus"></i>
-                                    </button>
-                                    <input type="number" class="form-control cart-qty-input"
-                                        :value="item.quantity"
-                                        @change="updateCartQuantity(item, $event.target.value)"
-                                        min="1" :max="getLiveStock(item.itemId)">
-                                    <button class="btn btn-sm btn-secondary cart-qty-btn"
-                                        @click="updateCartQuantity(item, item.quantity + 1)"
-                                        :disabled="item.quantity >= getLiveStock(item.itemId)">
-                                        <i class="fa-solid fa-plus"></i>
-                                    </button>
-                                </div>
-                            </td>
-                            <td class="cell-bold">₱{{ (item.unitPrice * item.quantity).toLocaleString() }}</td>
-                            <td>
-                                <button class="btn btn-sm btn-danger" @click="removeFromCart(item.lineId || item.itemId)">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+        <!-- Cart Items : full-width vertical list -->
+        <section class="cart-list" v-if="cart.length > 0">
+
+            <div class="cart-list-bar">
+                <label class="cart-check">
+                    <input type="checkbox" class="cart-cb" :checked="cartAllSelected"
+                        @change="toggleSelectAllCart()">
+                    <span class="cart-check-label">Select all</span>
+                </label>
+                <span class="cart-list-count">{{ cart.length }} item(s)</span>
             </div>
 
-            <!-- Cart Summary -->
-            <div class="cart-summary">
-                <div class="cart-summary-row">
-                    <span>Items ({{ cartCount }})</span>
-                    <span>₱{{ cartTotal.toLocaleString() }}</span>
+            <article class="cart-row"
+                v-for="item in cart"
+                :key="item.lineId || item.itemId"
+                :class="{
+                    'is-short': item.quantity > cartLineStock(item),
+                    'is-selected': isCartSelected(item.lineId || item.itemId),
+                    'is-open': swipeKey === (item.lineId || item.itemId) && swipeDx < 0
+                }"
+                @touchstart.passive="swipeStart($event, item)"
+                @touchmove="swipeMove($event, item)"
+                @touchend="swipeEnd($event, item)"
+                @touchcancel="closeCartSwipe()">
+
+                <div class="cart-row-slide"
+                    :style="swipeKey === (item.lineId || item.itemId) ? { transform: 'translateX(' + swipeDx + 'px)' } : null">
+
+                    <label class="cart-check cart-row-check">
+                        <input type="checkbox" class="cart-cb"
+                            :checked="isCartSelected(item.lineId || item.itemId)"
+                            @change="toggleCartSelected(item)">
+                        <span class="sr-only">Select {{ item.itemName }}</span>
+                    </label>
+
+                    <div class="cart-row-media">
+                        <bouquet-thumb v-if="item.customizations && item.customizations.bouquet"
+                            :c="item.customizations" class="cart-row-img"></bouquet-thumb>
+                        <img v-else-if="getProductImage(item.itemId) && !imageLoadErrors[item.itemId]"
+                            :src="getProductImage(item.itemId)" :alt="item.itemName" class="cart-row-img"
+                            loading="lazy" @error="imageLoadErrors[item.itemId] = true">
+                        <span class="cart-row-img cart-row-img-fallback" v-else>
+                            <i class="fa-solid fa-image"></i>
+                        </span>
+                    </div>
+
+                    <div class="cart-row-body">
+                        <div class="cart-row-head">
+                            <h3 class="cart-row-name">{{ item.itemName }}</h3>
+                            <div class="cart-row-unit">₱{{ getLivePrice(item).toLocaleString() }}</div>
+                        </div>
+
+                        <div class="cart-custom-tags" v-if="item.customizations">
+                            <span class="cart-custom-tag" v-if="item.customizations.wrapperColor">
+                                <i class="fa-solid fa-gift"></i> {{ item.customizations.wrapperColor }}
+                            </span>
+                            <span class="cart-custom-tag" v-if="item.customizations.ribbonColor">
+                                <i class="fa-solid fa-ribbon"></i> {{ item.customizations.ribbonColor }}
+                            </span>
+                            <span class="cart-custom-tag cart-custom-letter" v-if="item.customizations.message">
+                                <i class="fa-solid fa-envelope"></i> "{{ item.customizations.message }}"
+                            </span>
+                        </div>
+
+                        <div class="cart-row-stock" v-if="isMadeToOrder(item)"><i class="fa-solid fa-circle-check"></i> Made to order</div>
+                        <div class="cart-row-stock" v-else>Stock: {{ getLiveStock(item.itemId) }}</div>
+
+                        <div class="cart-stock-warning"
+                            v-if="!isMadeToOrder(item) && item.quantity > cartLineStock(item)">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            Only {{ cartLineStock(item) }} left — reduce quantity to continue
+                        </div>
+
+                        <div class="cart-row-foot">
+                            <div class="cart-qty-controls">
+                                <button class="cart-qty-btn"
+                                    @click="updateCartQuantity(item, item.quantity - 1)"
+                                    :disabled="item.quantity <= 1"
+                                    :aria-label="'Decrease ' + item.itemName">
+                                    <i class="fa-solid fa-minus"></i>
+                                </button>
+                                <input type="number" class="cart-qty-input"
+                                    :value="item.quantity"
+                                    @change="updateCartQuantity(item, $event.target.value)"
+                                    min="1" :max="cartLineStock(item)"
+                                    :aria-label="'Quantity of ' + item.itemName">
+                                <button class="cart-qty-btn"
+                                    @click="updateCartQuantity(item, item.quantity + 1)"
+                                    :disabled="item.quantity >= cartLineStock(item)"
+                                    :aria-label="'Increase ' + item.itemName">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="cart-row-line">₱{{ (getLivePrice(item) * item.quantity).toLocaleString() }}</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="cart-summary-row cart-summary-total">
-                    <span>Total</span>
-                    <span>₱{{ cartTotal.toLocaleString() }}</span>
-                </div>
-                <p class="cart-delivery-note">
-                    <i class="fa-solid fa-truck"></i> Delivery fee is calculated at checkout based on destination.
-                </p>
-                <div class="cart-stock-blocker" v-if="cartStockIssues.length > 0">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    {{ cartStockIssues.length }} item(s) exceed available stock. Adjust quantities to continue.
-                </div>
-                <button class="btn btn-primary cart-checkout-btn" @click="navigateTo('checkout')"
-                    :disabled="cartStockIssues.length > 0">
-                    <i class="fa-solid fa-lock"></i> Proceed to Checkout
+
+                <button class="cart-row-delete"
+                    @click="removeFromCart(item.lineId || item.itemId)"
+                    :aria-label="'Remove ' + item.itemName">
+                    <i class="fa-solid fa-trash"></i>
                 </button>
-            </div>
-        </div>
+            </article>
+
+            <p class="cart-delivery-note">
+                <i class="fa-solid fa-truck"></i> Delivery fee is calculated at checkout based on destination.
+            </p>
+        </section>
 
         <!-- Empty Cart -->
-        <div class="glass-card shop-empty" v-else>
-            <i class="fa-solid fa-cart-shopping shop-empty-icon"></i>
-            <h3>Your Cart is Empty</h3>
-            <p>Add some beautiful bouquets to your cart!</p>
-            <button class="btn btn-primary" @click="navigateTo('shop')" style="margin-top: 1rem;">
+        <section class="glass-card cart-empty" v-else>
+            <div class="cart-empty-icon"><i class="fa-solid fa-cart-shopping"></i></div>
+            <h3>Your cart is empty</h3>
+            <p>Handmade bouquets are one tap away.</p>
+            <button class="btn btn-primary cart-empty-cta" @click="navigateTo('shop')">
                 <i class="fa-solid fa-store"></i> Shop Bouquets
             </button>
-        </div>
+            <button class="btn btn-secondary cart-empty-cta" @click="navigateTo('customize')">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Build a Custom Bouquet
+            </button>
+        </section>
 
     </main>
 
-    <!-- TOAST NOTIFICATION -->
+    <!-- STICKY BOTTOM ACTION BAR -->
+    <div class="cart-dock" v-if="cart.length > 0">
+        <label class="cart-check cart-dock-check">
+            <input type="checkbox" class="cart-cb" :checked="cartAllSelected" @change="toggleSelectAllCart()">
+            <span class="cart-check-label">All</span>
+        </label>
+
+        <div class="cart-dock-total">
+            <span class="cart-dock-count">{{ cartSelectedCount }} selected</span>
+            <strong class="cart-dock-amount">₱{{ cartSelectedTotal.toLocaleString() }}</strong>
+        </div>
+
+        <button class="btn btn-primary cart-dock-cta"
+            :disabled="cartSelectedItems.length === 0 || cartSelectedIssues.length > 0"
+            @click="checkoutSelected()">
+            <i class="fa-solid fa-lock"></i>
+            <span>Checkout</span>
+        </button>
+    </div>
+
+    <div class="cart-stock-blocker" v-if="cart.length > 0 && cartSelectedIssues.length > 0">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        {{ cartSelectedIssues.length }} selected item(s) exceed available stock. Adjust quantities to continue.
+    </div>
+
+        <!-- CONFIRM MODAL -->
+    <div v-if="confirmModal.show" class="modal-overlay" @click.self="confirmModal.show = false">
+        <div class="modal-content" style="max-width:420px;text-align:center;">
+            <div class="modal-body" style="padding:2rem;">
+                <div class="confirm-modal-logo" :class="'confirm-logo-' + confirmModal.confirmTone">
+                    <i class="fa-solid" :class="confirmModal.logoIcon" style="font-size:1.8rem;"></i>
+                </div>
+                <h3 style="margin-bottom:0.5rem;">{{ confirmModal.title }}</h3>
+                <p style="color:var(--slate-600);">{{ confirmModal.message }}</p>
+            </div>
+            <div class="modal-footer" style="justify-content:center;border-top:none;">
+                <button class="btn btn-secondary" @click="confirmModal.show = false">Cancel</button>
+                <button class="btn" :class="confirmModal.confirmTone === 'danger' ? 'btn-danger' : 'btn-primary'" @click="confirmModal.onConfirm(); confirmModal.show = false;">
+                    <i class="fa-solid" :class="confirmModal.confirmIcon"></i> {{ confirmModal.confirmLabel }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+<!-- TOAST NOTIFICATION -->
     <div class="toast-container" v-if="toast.show">
         <div class="toast" :class="'toast-' + toast.type" role="alert">
             <i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i>
@@ -244,6 +304,6 @@
 </div>
 
 <!-- Application Logic -->
-<script defer src="../JS/app.js"></script>
+<script defer src="../JS/app.js?v=20261030"></script>
 </body>
 </html>

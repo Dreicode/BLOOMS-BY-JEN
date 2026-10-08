@@ -2,7 +2,7 @@
    Blooms by Jen - Vue 3 Multi-Page System
    ========================================================================== */
 
-const { createApp, ref, computed, onMounted, watch } = Vue;
+const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
 const getCurrentDir = () => {
     const path = window.location.pathname;
@@ -10,8 +10,34 @@ const getCurrentDir = () => {
     return lastSlash > 0 ? path.substring(0, lastSlash + 1) : '/';
 };
 
-// Set to false for production to hide demo credentials from the login form
-const IS_DEMO = false;
+// Calendar date in the visitor's own timezone. toISOString() is UTC, so
+// between 00:00 and 08:00 PHT it yields the PREVIOUS day — which made
+// "Today's Sales" read ₱0 and shifted order dates / delivery estimates.
+const todayLocal = () => {
+    const d = new Date();
+    return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+};
+
+// Owner account (demo)
+// ----------
+// There is no backend, so "users" live in each visitor's own
+// localStorage — there is no shared database and no way to keep a
+// secret in source. Any password committed here is public the moment
+// this repo is pushed.
+//
+// For the demo, app.js therefore seeds ONE clearly-labeled demo owner
+// account on first load (see seedDemoState). Every fresh browser
+// gets that owner, so registering can never silently hand the admin
+// role to whoever signs up first — new registrations are customers.
+//
+// Presentation line: "Because this is a frontend-only system, account
+// and role data are simulated using browser storage."
+//
+// The demo owner password below is intentionally public. It only
+// unlocks this browser's own local copy of the demo data; there is no
+// server for it to reach.
 
 // Safe storage helpers (prevent crashes when storage is blocked or full)
 const safeGetItem = (storage, key) => {
@@ -71,8 +97,12 @@ const getScreenFromPath = () => {
     if (path.endsWith('login.html')) return 'login';
     if (path.endsWith('register.html') || path.endsWith('signup.html')) return 'register';
     if (path.endsWith('dashboard.html')) return 'dashboard';
-    if (path.endsWith('order.html') || path.endsWith('orders.html')) return 'orders';
-    if (path.endsWith('myorders.html')) return 'myorders';
+        // 'myorders.html' must be tested before 'orders.html':
+        // 'myorders.html'.endsWith('orders.html') is true, so the
+        // orders check below would otherwise swallow the My Orders
+        // screen and the 'myorders' key could never be returned.
+        if (path.endsWith('myorders.html')) return 'myorders';
+        if (path.endsWith('order.html') || path.endsWith('orders.html')) return 'orders';
     if (path.endsWith('inventory.html')) return 'inventory';
     if (path.endsWith('sales.html')) return 'sales';
     if (path.endsWith('report.html') || path.endsWith('reports.html')) return 'reports';
@@ -90,6 +120,8 @@ const getScreenFromPath = () => {
 // Module scope so both the customize page (via setup) and the bouquet-thumb
 // component below can use the same asset paths and hole geometry.
 const BOUQUET_ASSET_DIR = '../Bouquet_assets';
+        // Bundled image format: WebP (keeps transparency for the cut-out assets)
+        const ASSET_EXT = '.webp';
 const PREVIEW_CANVAS = 1024;
 // Flower holes on the wrapper artwork (x/y center, d diameter, 1024 canvas)
 const PREVIEW_HOLES = [
@@ -114,10 +146,10 @@ const BouquetThumb = {
                 (this.c.ribbonColor || '') + ' ribbon';
         },
         wrapperSrc() {
-            return BOUQUET_ASSET_DIR + '/wrappers/linewrap_' + (this.b.wrapper || 'rose-pink') + '.png';
+            return BOUQUET_ASSET_DIR + '/wrappers/linewrap_' + (this.b.wrapper || 'rose-pink') + ASSET_EXT;
         },
         bowSrc() {
-            return BOUQUET_ASSET_DIR + '/bows/ribbonbow_' + (this.b.ribbon || 'white-satin') + '.png';
+            return BOUQUET_ASSET_DIR + '/bows/ribbonbow_' + (this.b.ribbon || 'white-satin') + ASSET_EXT;
         },
         flowers() {
             const out = [];
@@ -125,7 +157,7 @@ const BouquetThumb = {
                 const f = (this.b.flowers || [])[i];
                 if (!f) return;
                 out.push({
-                    src: BOUQUET_ASSET_DIR + '/flowers/' + f.type + '__' + f.color + '.png',
+                    src: BOUQUET_ASSET_DIR + '/flowers/' + f.type + '__' + f.color + ASSET_EXT,
                     style: {
                         left: (h.x / PREVIEW_CANVAS * 100) + '%',
                         top: (h.y / PREVIEW_CANVAS * 100) + '%',
@@ -151,20 +183,26 @@ createApp({
         const activeScreen = getScreenFromPath();
         const currentScreen = ref(activeScreen);
         const activeModal = ref(null);
+        // Order shown in the admin "creation details" popup
+        const viewOrder = ref(null);
         
         // Session state persistence across pages
         const storedAuth = safeGetItem(sessionStorage, 'blooms_logged_in') === 'true' || safeGetItem(localStorage, 'blooms_logged_in') === 'true';
         const isLoggedIn = ref(storedAuth);
         const isMobileMenuOpen = ref(false);
 
-        const defaultUser = { name: 'Jenelyn Ortiz', role: 'Owner & Teacher', shop: 'Blooms by Jen' };
+        // Placeholder shown before sign-in. Deliberately generic — it must not
+        // carry anyone's real identity, and role must stay 'customer' so an
+        // anonymous visitor is never mistaken for the owner (isAdminRole also
+        // requires isLoggedIn, but belt and braces).
+        const defaultUser = { name: 'Guest', role: 'customer', shop: 'Blooms by Jen' };
         const storedUser = safeGetJSON(sessionStorage, 'blooms_user') || safeGetJSON(localStorage, 'blooms_user');
         const currentUser = ref(storedUser || defaultUser);
 
         // Login Form
         const loginForm = ref({
-            email: IS_DEMO ? 'jenelyn.ortiz@bloomsbyjen.com' : '',
-            password: IS_DEMO ? 'password123' : '',
+            email: '',
+            password: '',
             showPassword: false,
             error: ''
         });
@@ -376,16 +414,72 @@ createApp({
         }, { deep: true });
         watch(sales, (newVal) => safeSetItem(localStorage, 'blooms_sales', JSON.stringify(newVal)), { deep: true });
 
+        // --- Back-to-top button ---
+        // Built in JS and appended to <body> so all 16 screens share one
+        // implementation instead of repeating markup in every page. It floats
+        // above the cart dock/stock blocker whenever those bars are showing.
+        const mountBackToTop = () => {
+            if (document.querySelector('.back-to-top')) return;
+            // Customize already keeps the bouquet pinned and the price bar docked
+            // at the bottom on phones, so a floating scroll-top button would only
+            // crowd the screen there.
+            if ((window.location.pathname || '').toLowerCase().includes('customize')) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'back-to-top';
+            btn.setAttribute('aria-label', 'Back to top');
+            btn.setAttribute('title', 'Back to top');
+            btn.innerHTML = '<i class="fa-solid fa-arrow-up" aria-hidden="true"></i>';
+            document.body.appendChild(btn);
+
+            const reduceMotion = !!(window.matchMedia &&
+                window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+            btn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+            });
+
+            // Bottom-fixed bars would sit under the button, so park it just
+            // above the tallest one instead of a hardcoded offset.
+            const parkAboveBars = () => {
+                let top = null;
+                document.querySelectorAll('.cart-dock, .cart-stock-blocker').forEach((el) => {
+                    const r = el.getBoundingClientRect();
+                    if (r.height > 0 && (top === null || r.top < top)) top = r.top;
+                });
+                btn.style.bottom = top === null
+                    ? ''
+                    : Math.round(window.innerHeight - top) + 14 + 'px';
+            };
+
+            // Deliberately synchronous: a requestAnimationFrame gate would stay
+            // latched shut whenever rAF is starved (background tab, headless),
+            // and the button would never appear. Browsers coalesce scroll
+            // events to one per frame anyway.
+            const sync = () => {
+                const y = window.scrollY || document.documentElement.scrollTop || 0;
+                parkAboveBars();
+                btn.classList.toggle('is-visible', y > 260);
+            };
+
+            window.addEventListener('scroll', sync, { passive: true });
+            window.addEventListener('resize', sync, { passive: true });
+            sync();
+        };
+
         onMounted(() => {
             // Hide loading spinner
             const loader = document.getElementById('app-loading');
             if (loader) loader.style.display = 'none';
 
+            // Scroll-to-top affordance, present on every screen
+            mountBackToTop();
+
             // Warm the cache for the likely next pages while the user reads this one
             prefetchScreens();
 
-            // Seed admin account on first load
-            seedAdminAccount();
+            // Seed the demo owner account + sample tables on first load
+            seedDemoState();
 
             // Prefill checkout from the customer's registration/profile data.
             // Existing draft values always win so in-progress typing is never lost.
@@ -405,7 +499,7 @@ createApp({
                         }
                     }
                     if (!checkoutForm.value.deliveryAddress) {
-                        const parts = [account.apartment, account.street, account.city, account.province]
+                        const parts = [account.apartment, account.street, account.barangay, account.city, account.province]
                             .map(p => (p || '').trim())
                             .filter(Boolean);
                         if (parts.length) checkoutForm.value.deliveryAddress = parts.join(', ');
@@ -431,7 +525,10 @@ createApp({
             }
 
             // Admin-only screens (customers cannot access)
-            const adminScreens = ['dashboard', 'inventory', 'sales', 'reports'];
+            // NB: 'orders' is the order-management table — it is admin
+            // only and must be listed here or the role check below
+            // never applies to it and customers could open it.
+            const adminScreens = ['dashboard', 'orders', 'inventory', 'sales', 'reports'];
             if (adminScreens.includes(currentScreen.value) && !isLoggedIn.value) {
                 flashToast('Please log in to access this page', 'info');
                 hardNavigate(getCurrentDir() + 'login.html');
@@ -485,6 +582,12 @@ createApp({
                 return;
             }
 
+            // Returning to the cart re-opens selection from scratch, so a stale
+            // "buy only these lines" list can never outlive the screen that set it.
+            if (currentScreen.value === 'cart') {
+                safeSetItem(sessionStorage, 'blooms_checkout_lines', '[]');
+            }
+
             // Admin pages: only the admin role is allowed in
             if (adminScreens.includes(currentScreen.value) && isLoggedIn.value && !isAdminRole.value) {
                 flashToast('Access denied. Only the admin can access this page.', 'error');
@@ -517,15 +620,34 @@ createApp({
         const clearSaleErrors = () => { saleErrors.value = {}; };
 
         // --- Confirm Modal ---
+        // Shared by destructive actions (delete) and by logout, so the
+        // button label/icon are part of the state rather than hardcoded.
         const confirmModal = ref({
             show: false,
             title: '',
             message: '',
-            onConfirm: () => {}
+            onConfirm: () => {},
+            confirmLabel: 'Confirm Delete',
+            confirmIcon: 'fa-trash',
+            // 'danger' = red destructive action, 'primary' = brand gradient (e.g. status updates),
+            // 'brand' = the Blooms by Jen logo look (logout)
+            confirmTone: 'danger',
+            logoIcon: 'fa-triangle-exclamation'
         });
 
-        const showConfirm = (title, message, onConfirm) => {
-            confirmModal.value = { show: true, title, message, onConfirm };
+        const showConfirm = (title, message, onConfirm, confirmLabel = 'Confirm Delete', confirmIcon = 'fa-trash', confirmTone = 'danger', logoIcon = null) => {
+            confirmModal.value = {
+                show: true,
+                title,
+                message,
+                onConfirm,
+                confirmLabel,
+                confirmIcon,
+                confirmTone,
+                // Logo badge icon: callers can override it, otherwise danger keeps
+                // the warning triangle and other tones mirror their action icon.
+                logoIcon: logoIcon || (confirmTone === 'danger' ? 'fa-triangle-exclamation' : confirmIcon)
+            };
         };
 
         // --- Form Models for Modals ---
@@ -534,12 +656,12 @@ createApp({
         const orderForm = ref({
             id: '',
             customerName: '',
-            bouquetType: 'Custom Rose Arrangement',
+            items: [],
+            deliveryFee: 0,
             wrappingColor: 'Soft Blush Pink',
             ribbonColor: 'Golden Satin',
-            price: 1500,
             status: 'Pending',
-            date: new Date().toISOString().substr(0, 10),
+            date: todayLocal(),
             customMessage: ''
         });
 
@@ -560,7 +682,7 @@ createApp({
             customerName: '',
             amount: 1500,
             paymentMethod: 'GCash',
-            date: new Date().toISOString().substr(0, 10),
+            date: todayLocal(),
             notes: 'Handcrafted bouquet transaction'
         });
 
@@ -605,6 +727,7 @@ createApp({
             phone: '',
             street: '',
             apartment: '',
+            barangay: '',
             province: '',
             city: '',
             password: '',
@@ -616,9 +739,31 @@ createApp({
         const registerErrors = ref({});
         const registerSubmitting = ref(false);
         const registrationSuccess = ref(false);
+        // Demo email verification result: shown instead of jumping straight to login
+        const emailVerified = ref(false);
         const registerRateLimited = ref(false);
         const registerRateLimitSeconds = ref(0);
         let registerRateTimer = null;
+
+        // --- Terms of Service / Privacy Policy modal (registration) ---
+        const legalModal = ref({ show: false, type: 'terms' });
+        let legalModalKeyHandler = null;
+
+        const closeLegalModal = () => {
+            legalModal.value.show = false;
+            if (legalModalKeyHandler) {
+                document.removeEventListener('keydown', legalModalKeyHandler);
+                legalModalKeyHandler = null;
+            }
+        };
+
+        const openLegalModal = (type) => {
+            legalModal.value = { show: true, type: type === 'privacy' ? 'privacy' : 'terms' };
+            legalModalKeyHandler = (event) => {
+                if (event.key === 'Escape') closeLegalModal();
+            };
+            document.addEventListener('keydown', legalModalKeyHandler);
+        };
 
         // --- Profile State (customer) ---
         // Same fields the customer filled in at registration; stored values are
@@ -629,6 +774,7 @@ createApp({
             email: '',
             phone: '',
             street: '',
+            barangay: '',
             apartment: '',
             province: '',
             city: ''
@@ -700,7 +846,7 @@ createApp({
             }
 
             // Admin-only screens
-            const adminScreens = ['dashboard', 'inventory', 'sales', 'reports'];
+            const adminScreens = ['dashboard', 'orders', 'inventory', 'sales', 'reports'];
 
             // Customer-only screens (require login)
             const customerOnlyScreens = ['checkout', 'payment', 'myorders', 'profile'];
@@ -743,7 +889,7 @@ createApp({
                 loginErrors.value.email = 'Email is required';
                 hasError = true;
             } else if (!/\S+@\S+\.\S+/.test(loginForm.value.email)) {
-                loginErrors.value.email = 'Please enter a valid email';
+                loginErrors.value.email = 'Invalid email';
                 hasError = true;
             }
 
@@ -769,22 +915,26 @@ createApp({
             const registeredUser = users.find(u => u.email === email);
 
             if (!registeredUser) {
-                // Generic error - never reveal whether email exists
-                loginErrors.value.general = 'Invalid email or password';
+                // No matching account: flag the email field
+                loginErrors.value.email = 'Invalid email';
                 recordLoginAttempt();
                 return;
             }
 
             // Check if email is verified
             if (!registeredUser.isVerified) {
-                loginErrors.value.general = 'Please verify your email address before logging in.';
+                loginErrors.value.email = 'Please verify your email address before logging in.';
                 recordLoginAttempt();
                 return;
             }
 
             // Verify password
             hashPassword(password).then(hash => {
-                if (hash === registeredUser.passwordHash) {
+                // hash is null on a non-secure origin, and an account
+                // seeded there would hold an empty hash — neither may
+                // ever authenticate, so require a non-empty hash on
+                // both sides of the comparison.
+                if (hash && hash === registeredUser.passwordHash) {
                     // Success - route by role
                     isLoggedIn.value = true;
                     currentUser.value = { name: registeredUser.name, role: registeredUser.role, shop: 'Blooms by Jen', email: registeredUser.email };
@@ -798,15 +948,30 @@ createApp({
                         navigateTo('shop');
                     }
                 } else {
-                    loginErrors.value.general = 'Invalid email or password';
+                    loginErrors.value.password = 'Invalid password';
                     recordLoginAttempt();
                 }
             });
         };
 
-        const handleLogout = () => {
+        // Demo helper: drop the seeded owner credentials into the login
+        // form so they are never typed live during a presentation.
+        // Simulated auth - the account itself lives in localStorage.
+        const fillDemoCredentials = () => {
+            loginForm.value.email = DEMO_OWNER_EMAIL;
+            loginForm.value.password = DEMO_OWNER_PASSWORD;
+            loginForm.value.showPassword = true;
+            clearLoginErrors();
+        };
+
+        // Signs the user out. Never called directly from the templates —
+        // always routed through the confirmation modal below.
+        const performLogout = () => {
             isLoggedIn.value = false;
             isMobileMenuOpen.value = false;
+            // Drop the cached identity too, otherwise the nav keeps showing
+            // the signed-in name after the session keys are cleared.
+            currentUser.value = defaultUser;
             safeRemoveItem(sessionStorage, 'blooms_logged_in');
             safeRemoveItem(sessionStorage, 'blooms_user');
             safeRemoveItem(localStorage, 'blooms_logged_in');
@@ -815,38 +980,73 @@ createApp({
             navigateTo('landing');
         };
 
-        const fillDemoCredentials = () => {
-            loginForm.value.email = 'jenelyn.ortiz@bloomsbyjen.com';
-            loginForm.value.password = 'password123';
-            showToast('Demo owner credentials populated');
+        // Clicking the power icon asks for confirmation first, so nobody
+        // gets signed out by an accidental tap. Cancel just closes the modal.
+        const handleLogout = () => {
+            showConfirm(
+                'Log Out',
+                'Are you sure you want to log out of your account?',
+                performLogout,
+                'Log Out',
+                'fa-right-from-bracket',
+                'brand',
+                'fa-spa'
+            );
         };
 
         // --- Modals Controller ---
         const openModal = (modalName, data = null) => {
             isMobileMenuOpen.value = false;
             activeModal.value = modalName;
+            if (modalName === 'orderView') {
+                viewOrder.value = data;
+            }
             if (modalName === 'addEditOrder') {
                 if (data) {
                     isEditingOrder.value = true;
                     originalOrderState.value = JSON.parse(JSON.stringify(data));
-                    orderForm.value = { quantity: 1, ...data };
+                    // Migrate legacy single-item order to new items[] format
+                    let items = data.items || [];
+                    if (items.length === 0 && data.bouquetType) {
+                        const invItem = inventory.value.find(i => i.itemName === data.bouquetType);
+                        items = [{
+                            itemId: invItem ? invItem.id : '',
+                            itemName: data.bouquetType,
+                            unitPrice: Number(data.price) || 0,
+                            quantity: Number(data.quantity) || 1,
+                            lineTotal: (Number(data.price) || 0) * (Number(data.quantity) || 1),
+                            wrappingColor: data.wrappingColor || '',
+                            ribbonColor: data.ribbonColor || ''
+                        }];
+                    }
+                    orderForm.value = {
+                        id: data.id,
+                        customerName: data.customerName || '',
+                        items: items,
+                        deliveryFee: Number(data.deliveryFee) || 0,
+                        wrappingColor: data.wrappingColor || 'Soft Blush Pink',
+                        ribbonColor: data.ribbonColor || 'Golden Satin',
+                        status: data.status || 'Pending',
+                        date: data.date || todayLocal(),
+                        customMessage: data.customMessage || ''
+                    };
+                    recalcOrderTotals();
                 } else {
                     isEditingOrder.value = false;
                     originalOrderState.value = null;
-                    const defaultBouquet = inventory.value.length > 0 ? inventory.value[0].itemName : 'Custom Rose Arrangement';
-                    const defaultPrice = inventory.value.length > 0 ? Number(inventory.value[0].unitPrice) : 1500;
+                    const firstInv = inventory.value[0];
                     orderForm.value = {
                         id: nextRecordId('ORD', orders.value, 105),
                         customerName: '',
-                        bouquetType: defaultBouquet,
-                        quantity: 1,
+                        items: [],
+                        deliveryFee: 0,
                         wrappingColor: 'Soft Blush Pink',
                         ribbonColor: 'Golden Satin',
-                        price: defaultPrice,
                         status: 'Pending',
-                        date: new Date().toISOString().substr(0, 10),
+                        date: todayLocal(),
                         customMessage: ''
                     };
+                    addOrderLine(firstInv);
                 }
             } else if (modalName === 'addEditItem') {
                 if (data) {
@@ -883,63 +1083,107 @@ createApp({
                         customerName: '',
                         amount: 1800,
                         paymentMethod: 'GCash',
-                        date: new Date().toISOString().substr(0, 10),
+                        date: todayLocal(),
                         notes: 'Over-the-counter sale'
                     };
                 }
             }
         };
 
-        const selectedInventoryItem = computed(() => {
-            return inventory.value.find(i => i.itemName === orderForm.value.bouquetType) || null;
+const firstLineItem = computed(() => {
+            const lines = orderForm.value.items || [];
+            if (lines.length === 0) return null;
+            return inventory.value.find(i => i.id === lines[0].itemId) || null;
         });
 
-        const maxOrderQuantity = computed(() => {
-            if (selectedInventoryItem.value) {
-                let stock = Number(selectedInventoryItem.value.stock) || 0;
-                if (isEditingOrder.value && originalOrderState.value && originalOrderState.value.bouquetType === orderForm.value.bouquetType) {
-                    stock += Number(originalOrderState.value.quantity) || 1;
-                }
-                return Math.max(1, stock);
+        const recalcOrderTotals = () => {
+            const lines = orderForm.value.items || [];
+            let subtotal = 0;
+            let totalQty = 0;
+            for (const line of lines) {
+                const qty = Number(line.quantity) || 1;
+                const unitPrice = Number(line.unitPrice) || 0;
+                line.lineTotal = qty * unitPrice;
+                subtotal += line.lineTotal;
+                totalQty += qty;
             }
-            return 999;
-        });
-
-        const updateOrderCalculatedPrice = () => {
-            const item = selectedInventoryItem.value;
-            let qty = Number(orderForm.value.quantity) || 1;
-            if (qty < 1) qty = 1;
-
-            if (item) {
-                const maxAllowed = maxOrderQuantity.value;
-                if (qty > maxAllowed) {
-                    qty = maxAllowed;
-                    showToast(`Quantity set to available stock limit (${maxAllowed})`, 'warning');
-                }
-                orderForm.value.quantity = qty;
-                // Keep the customer's delivery fee inside the recalculated total
-                const fee = Number(orderForm.value.deliveryFee) || 0;
-                orderForm.value.price = qty * Number(item.unitPrice || 0) + fee;
-            } else {
-                orderForm.value.quantity = qty;
-            }
+            const fee = Number(orderForm.value.deliveryFee) || 0;
+            orderForm.value.subtotal = subtotal;
+            orderForm.value.price = subtotal + fee;
+            orderForm.value.quantity = totalQty;
+            orderForm.value.bouquetType = lines.map(l => l.itemName).join(', ');
         };
 
-        const onBouquetTypeChange = () => {
-            const item = selectedInventoryItem.value;
-            if (item) {
-                orderForm.value.quantity = 1;
-                const fee = Number(orderForm.value.deliveryFee) || 0;
-                orderForm.value.price = Number(item.unitPrice || 0) + fee;
+        // A custom bouquet is assembled to order, so the shop bouquet the
+        // customizer happens to match by name has nothing to do with it:
+        // neither its stock pool nor its price applies to those lines.
+        const CUSTOM_BOUQUET_PRICE = 399;
+        const MADE_TO_ORDER_MAX = 99;
+        const isMadeToOrder = (line) => !!(line &&
+            ((line.customizations && line.customizations.bouquet) || line.madeToOrder));
+
+        const getLineMaxStock = (line) => {
+            if (isMadeToOrder(line)) return MADE_TO_ORDER_MAX;
+            const inv = inventory.value.find(i => i.id === line.itemId);
+            if (!inv) return 999;
+            let stock = Number(inv.stock) || 0;
+            if (isEditingOrder.value && originalOrderState.value) {
+                const oldLine = (originalOrderState.value.items || []).find(l => l.itemId === line.itemId);
+                if (oldLine) {
+                    stock += Number(oldLine.quantity) || 0;
+                }
             }
+            return Math.max(1, stock);
+        };
+
+        const addOrderLine = (item = null) => {
+            const lines = orderForm.value.items || [];
+            if (item) {
+                lines.push({
+                    itemId: item.id,
+                    itemName: item.itemName,
+                    unitPrice: Number(item.unitPrice) || 0,
+                    quantity: 1,
+                    lineTotal: Number(item.unitPrice) || 0,
+                    wrappingColor: '',
+                    ribbonColor: ''
+                });
+            } else {
+                const firstInv = inventory.value[0];
+                if (firstInv) {
+                    lines.push({
+                        itemId: firstInv.id,
+                        itemName: firstInv.itemName,
+                        unitPrice: Number(firstInv.unitPrice) || 0,
+                        quantity: 1,
+                        lineTotal: Number(firstInv.unitPrice) || 0,
+                        wrappingColor: '',
+                        ribbonColor: ''
+                    });
+                }
+            }
+            orderForm.value.items = lines;
+            recalcOrderTotals();
+        };
+
+        const removeOrderLine = (index) => {
+            const lines = orderForm.value.items || [];
+            lines.splice(index, 1);
+            orderForm.value.items = lines;
+            recalcOrderTotals();
+        };
+
+const updateOrderCalculatedPrice = () => {
+            recalcOrderTotals();
         };
 
         const closeModal = () => {
             activeModal.value = null;
+            viewOrder.value = null;
         };
 
         // --- Orders Actions ---
-        const saveOrder = () => {
+const saveOrder = () => {
             clearOrderErrors();
             let hasError = false;
 
@@ -948,9 +1192,21 @@ createApp({
                 hasError = true;
             }
 
-            if (!orderForm.value.quantity || orderForm.value.quantity < 1) {
-                orderErrors.value.quantity = 'Quantity must be at least 1';
+            const lines = orderForm.value.items || [];
+            if (lines.length === 0) {
+                orderErrors.value.items = 'At least one order line is required';
                 hasError = true;
+            } else {
+                for (let i = 0; i < lines.length; i++) {
+                    if (!lines[i].itemId) {
+                        orderErrors.value['item_' + i] = 'Line ' + (i + 1) + ': item is required';
+                        hasError = true;
+                    }
+                    if (!lines[i].quantity || lines[i].quantity < 1) {
+                        orderErrors.value['qty_' + i] = 'Line ' + (i + 1) + ': quantity must be at least 1';
+                        hasError = true;
+                    }
+                }
             }
 
             if (!isEditingOrder.value) {
@@ -963,37 +1219,41 @@ createApp({
 
             if (hasError) return;
 
-            const item = selectedInventoryItem.value;
-            const newQty = Number(orderForm.value.quantity) || 1;
-
             if (isEditingOrder.value) {
                 const oldOrder = originalOrderState.value || orders.value.find(o => o.id === orderForm.value.id);
-                const oldBouquet = oldOrder ? oldOrder.bouquetType : orderForm.value.bouquetType;
-                const oldQty = oldOrder ? (Number(oldOrder.quantity) || 1) : 1;
 
-                if (oldBouquet === orderForm.value.bouquetType) {
-                    const diff = newQty - oldQty;
-                    if (item) {
-                        if (diff > item.stock) {
-                            showToast(`Cannot increase order quantity: requested ${diff} more units, but only ${item.stock} in stock!`, 'error');
-                            return;
-                        }
-                        item.stock = Math.max(0, item.stock - diff);
-                        maybeNotifyLowStock(item);
-                    }
-                } else {
-                    const oldItem = inventory.value.find(i => i.itemName === oldBouquet);
+                // Restore stock from old order lines
+                const oldLines = oldOrder?.items || [];
+                if (oldLines.length === 0 && oldOrder?.bouquetType) {
+                    // Legacy single-item order
+                    const oldItem = inventory.value.find(i => i.itemName === oldOrder.bouquetType);
                     if (oldItem) {
-                        oldItem.stock += oldQty;
+                        oldItem.stock = Number(oldItem.stock) + (Number(oldOrder.quantity) || 1);
                         maybeNotifyLowStock(oldItem);
                     }
-                    if (item) {
-                        if (newQty > item.stock) {
-                            showToast(`Cannot switch item: requested ${newQty} units exceeds stock (${item.stock})!`, 'error');
+                } else {
+                    for (const oldLine of oldLines) {
+                        if (isMadeToOrder(oldLine)) continue;
+                        const inv = inventory.value.find(i => i.id === oldLine.itemId);
+                        if (inv) {
+                            inv.stock = Number(inv.stock) + (Number(oldLine.quantity) || 0);
+                            maybeNotifyLowStock(inv);
+                        }
+                    }
+                }
+
+                // Deduct stock for new order lines
+                for (const line of lines) {
+                    if (isMadeToOrder(line)) continue;
+                    const inv = inventory.value.find(i => i.id === line.itemId);
+                    if (inv) {
+                        const qty = Number(line.quantity) || 1;
+                        if (qty > inv.stock) {
+                            showToast(`Cannot save: ${line.itemName} requested ${qty} but only ${inv.stock} in stock!`, 'error');
                             return;
                         }
-                        item.stock = Math.max(0, item.stock - newQty);
-                        maybeNotifyLowStock(item);
+                        inv.stock = Math.max(0, inv.stock - qty);
+                        maybeNotifyLowStock(inv);
                     }
                 }
 
@@ -1016,34 +1276,30 @@ createApp({
                     if (statusChanged) notifyStatusChange(saved);
                 }
 
-                // Update / sync corresponding sale record so Today's Sales reacts
-                const saleIndex = sales.value.findIndex(s => s.orderId === orderForm.value.id);
-                if (saleIndex !== -1) {
-                    sales.value[saleIndex].amount = orderSaleAmount(orderForm.value);
-                    sales.value[saleIndex].customerName = orderForm.value.customerName;
-                    sales.value[saleIndex].date = orderForm.value.date;
-                } else {
-                    sales.value.unshift({
-                        id: nextRecordId('SAL', sales.value, 501),
-                        orderId: orderForm.value.id,
-                        customerName: orderForm.value.customerName,
-                        amount: orderSaleAmount(orderForm.value),
-                        paymentMethod: 'GCash',
-                        date: orderForm.value.date,
-                        notes: 'Order transaction'
-                    });
+                showToast(`Order ${orderForm.value.id} updated! Stock adjusted.`);
+            } else {
+                // Validate stock for all lines before committing
+                for (const line of lines) {
+                    if (isMadeToOrder(line)) continue;
+                    const inv = inventory.value.find(i => i.id === line.itemId);
+                    if (inv) {
+                        const qty = Number(line.quantity) || 1;
+                        if (qty > inv.stock) {
+                            showToast(`Cannot place order: ${line.itemName} quantity (${qty}) exceeds stock (${inv.stock})!`, 'error');
+                            return;
+                        }
+                    }
                 }
 
-                showToast(`Order ${orderForm.value.id} updated! Stock adjusted & Sales updated.`);
-            } else {
-                if (item) {
-                    const stock = Number(item.stock) || 0;
-                    if (newQty > stock) {
-                        showToast(`Cannot place order: quantity (${newQty}) exceeds stock (${stock})!`, 'error');
-                        return;
+                // Deduct stock
+                for (const line of lines) {
+                    if (isMadeToOrder(line)) continue;
+                    const inv = inventory.value.find(i => i.id === line.itemId);
+                    if (inv) {
+                        const qty = Number(line.quantity) || 1;
+                        inv.stock = Math.max(0, inv.stock - qty);
+                        maybeNotifyLowStock(inv);
                     }
-                    item.stock = Math.max(0, item.stock - newQty);
-                    maybeNotifyLowStock(item);
                 }
 
                 const created = { ...orderForm.value };
@@ -1054,17 +1310,6 @@ createApp({
                 orders.value.unshift(created);
                 addNotification(created.id, `Order ${created.id} has been placed successfully.`, 'order', created.customerName || '');
 
-                // Create corresponding sale record so Today's Sales reacts
-                sales.value.unshift({
-                    id: nextRecordId('SAL', sales.value, 501),
-                    orderId: orderForm.value.id,
-                    customerName: orderForm.value.customerName,
-                    amount: orderSaleAmount(orderForm.value),
-                    paymentMethod: 'GCash',
-                    date: orderForm.value.date,
-                    notes: 'Order transaction'
-                });
-
                 showToast(`New Order ${orderForm.value.id} added & stock depleted!`);
             }
             closeModal();
@@ -1072,6 +1317,7 @@ createApp({
 
         const updateOrderStatus = (order, newStatus) => {
             if (order.status === newStatus) return;
+            const wasCompleted = order.status === 'Completed';
             order.status = newStatus;
             // Append to status history so the customer sees a real timeline
             if (!Array.isArray(order.statusHistory)) order.statusHistory = [];
@@ -1079,6 +1325,21 @@ createApp({
             // A completed COD order has been paid on receipt
             if (newStatus === 'Completed' && ['COD', 'Cash'].includes(order.paymentMethod)) {
                 order.paymentStatus = 'Paid';
+            }
+            // Create sale record when order reaches Completed (not before)
+            if (!wasCompleted && newStatus === 'Completed') {
+                const saleIdx = sales.value.findIndex(s => s.orderId === order.id);
+                if (saleIdx === -1) {
+                    sales.value.unshift({
+                        id: nextRecordId('SAL', sales.value, 501),
+                        orderId: order.id,
+                        customerName: order.customerName,
+                        amount: orderSaleAmount(order),
+                        paymentMethod: order.paymentMethod || 'GCash',
+                        date: order.date || todayLocal(),
+                        notes: order.paymentMethod === 'GCash' ? `GCash ref: ${order.gcashReference || ''}` : 'Cash on delivery'
+                    });
+                }
             }
             // Write a notification row at the same moment
             notifyStatusChange(order);
@@ -1091,7 +1352,10 @@ createApp({
             showConfirm(
                 'Change Order Status',
                 `Move ${order.id} from "${order.status}" to "${newStatus}"? The customer will be notified.`,
-                () => updateOrderStatus(order, newStatus)
+                () => updateOrderStatus(order, newStatus),
+                'Change Status',
+                'fa-arrows-rotate',
+                'primary'
             );
         };
 
@@ -1100,9 +1364,21 @@ createApp({
                 const orderToDelete = orders.value.find(o => o.id === id);
                 let restored = false;
                 if (orderToDelete) {
-                    if (Array.isArray(orderToDelete.cartItems) && orderToDelete.cartItems.length > 0) {
+                    // Multi-item admin order (new format)
+                    if (Array.isArray(orderToDelete.items) && orderToDelete.items.length > 0) {
+                        for (const line of orderToDelete.items) {
+                            if (isMadeToOrder(line)) continue;
+                            const inv = inventory.value.find(i => i.id === line.itemId);
+                            if (inv) {
+                                inv.stock = Number(inv.stock) + (Number(line.quantity) || 0);
+                                maybeNotifyLowStock(inv);
+                                restored = true;
+                            }
+                        }
+                    } else if (Array.isArray(orderToDelete.cartItems) && orderToDelete.cartItems.length > 0) {
                         // Customer cart order: restore each line item by its inventory ID
                         for (const line of orderToDelete.cartItems) {
+                            if (isMadeToOrder(line)) continue;
                             const inv = inventory.value.find(i => i.id === line.itemId);
                             if (inv) {
                                 inv.stock = Number(inv.stock) + (Number(line.quantity) || 0);
@@ -1111,7 +1387,7 @@ createApp({
                             }
                         }
                     } else {
-                        // Admin-created order: bouquetType is a single inventory item name
+                        // Legacy admin-created order: bouquetType is a single inventory item name
                         const qtyToRestore = Number(orderToDelete.quantity) || 1;
                         const item = inventory.value.find(i => i.itemName === orderToDelete.bouquetType);
                         if (item) {
@@ -1285,29 +1561,49 @@ createApp({
         };
 
         // --- Export Feature ---
+        // Guard against CSV formula injection (a.k.a. CSV injection,
+        // CWE-1236). Spreadsheet apps treat a cell that starts with
+        // =, +, -, @ or a tab/CR as a formula, so a customer or item
+        // name like "=1+1" or "=HYPERLINK(...)" would be evaluated
+        // when the owner opens this report. Prefixing such a value
+        // with an apostrophe and always quoting the cell keeps the
+        // original text literal and protects embedded quotes,
+        // commas and line breaks.
+        const csvEscape = (value) => {
+            let str = (value === null || value === undefined) ? '' : String(value);
+            if (/^[=+\-@\t\r]/.test(str)) str = "'" + str;
+            return '"' + str.replace(/"/g, '""') + '"';
+        };
+
         const exportReportCSV = () => {
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "Blooms by Jen - Sales and Inventory Summary Report\n\n";
-            csvContent += "SALES TRANSACTIONS\n";
-            csvContent += "Transaction ID,Order ID,Customer,Amount (PHP),Payment Method,Date,Notes\n";
-            
-            sales.value.forEach(s => {
-                csvContent += `${s.id},${s.orderId},"${s.customerName}",${s.amount},${s.paymentMethod},${s.date},"${s.notes}"\n`;
-            });
+            const rows = [];
+            rows.push(['Blooms by Jen - Sales and Inventory Summary Report']);
+            rows.push([]);
+            rows.push(['SALES TRANSACTIONS']);
+            rows.push(['Transaction ID', 'Order ID', 'Customer', 'Amount (PHP)', 'Payment Method', 'Date', 'Notes']);
+            sales.value.forEach(s => rows.push([
+                s.id, s.orderId, s.customerName, s.amount, s.paymentMethod, s.date, s.notes
+            ]));
 
-            csvContent += "\nINVENTORY STOCK MONITORING\n";
-            csvContent += "Item ID,Item Name,Category,Stock Level,Unit Price (PHP)\n";
-            inventory.value.forEach(i => {
-                csvContent += `${i.id},"${i.itemName}",${i.category},${i.stock},${i.unitPrice}\n`;
-            });
+            rows.push([]);
+            rows.push(['INVENTORY STOCK MONITORING']);
+            rows.push(['Item ID', 'Item Name', 'Category', 'Stock Level', 'Unit Price (PHP)']);
+            inventory.value.forEach(i => rows.push([
+                i.id, i.itemName, i.category, i.stock, i.unitPrice
+            ]));
 
-            const encodedUri = encodeURI(csvContent);
+            // CRLF line endings keep Excel/LibreOffice happy, and the
+            // BOM keeps non-ASCII (e.g. peso amounts) decoding correctly.
+            const csvContent = rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `Blooms_by_Jen_Report_${new Date().toISOString().substr(0,10)}.csv`);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Blooms_by_Jen_Report_${todayLocal()}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            URL.revokeObjectURL(url);
 
             showToast("Report exported successfully as CSV!");
         };
@@ -1326,6 +1622,58 @@ createApp({
                 return matchesSearch && matchesCategory && Number(i.stock) > 0;
             });
         });
+
+        // --- Shop card stats: units sold + star rating per product ---
+        // Both are derived from real orders/reviews so the shop never shows
+        // numbers that the data can't back up.
+        const orderLineHits = (order) => {
+            const hits = [];
+            const push = (arr) => {
+                if (!Array.isArray(arr)) return;
+                arr.forEach((l) => {
+                    if (l && l.itemId) hits.push({ id: l.itemId, qty: Number(l.quantity) || 0 });
+                });
+            };
+            push(order.items);
+            push(order.cartItems);
+            // Legacy orders only stored a product name and a single quantity
+            if (hits.length === 0 && typeof order.bouquetType === 'string' && order.bouquetType) {
+                inventory.value.forEach((it) => {
+                    if (order.bouquetType.indexOf(it.itemName) !== -1) {
+                        hits.push({ id: it.id, qty: Number(order.quantity) || 0 });
+                    }
+                });
+            }
+            return hits;
+        };
+
+        const shopStats = computed(() => {
+            const stats = {};
+            inventory.value.forEach((it) => {
+                stats[it.id] = { sold: 0, ratingSum: 0, ratingCount: 0 };
+            });
+            orders.value.forEach((order) => {
+                const hits = orderLineHits(order).filter((h) => stats[h.id]);
+                hits.forEach((h) => { stats[h.id].sold += h.qty; });
+                const rating = Number(order.review && order.review.rating) || 0;
+                if (rating > 0 && hits.length > 0) {
+                    hits.forEach((h) => {
+                        stats[h.id].ratingSum += rating;
+                        stats[h.id].ratingCount += 1;
+                    });
+                }
+            });
+            Object.keys(stats).forEach((id) => {
+                const s = stats[id];
+                s.avg = s.ratingCount > 0 ? s.ratingSum / s.ratingCount : 0;
+            });
+            return stats;
+        });
+
+        // Per-card lookup used by the template; a brand-new product has no
+        // orders yet, so it falls back to a zeroed entry.
+        const shopStat = (item) => shopStats.value[item.id] ||
+            { sold: 0, avg: 0, ratingCount: 0 };
 
         const customerSelectedBouquet = computed(() => {
             return inventory.value.find(i => i.itemName === customerOrderForm.value.bouquetType) || null;
@@ -1429,22 +1777,13 @@ createApp({
                 ribbonColor: customerOrderForm.value.ribbonColor || 'Standard Ribbon',
                 price: customerTotalPrice.value,
                 status: 'Pending',
-                date: new Date().toISOString().substr(0, 10),
+                date: todayLocal(),
                 customMessage: customerOrderForm.value.customMessage || '',
                 paymentMethod: customerOrderForm.value.paymentMethod || 'Cash',
                 isCustomerOrder: true
             };
 
             orders.value.unshift({ ...orderData });
-            sales.value.unshift({
-                id: nextRecordId('SAL', sales.value, 501),
-                orderId: newOrderId,
-                customerName: orderData.customerName,
-                amount: orderData.price,
-                paymentMethod: orderData.paymentMethod,
-                date: orderData.date,
-                notes: 'Customer online order'
-            });
 
             addNotification(newOrderId, `Order ${newOrderId} has been placed successfully.`, 'order', orderData.customerName);
             addNotification(newOrderId, `New order ${newOrderId} from ${orderData.customerName} — ₱${Number(orderData.price) || 0} via ${orderData.paymentMethod}`, 'order', ADMIN_NOTIFICATION_OWNER);
@@ -1492,6 +1831,25 @@ createApp({
             return inv ? Number(inv.stock) : 0;
         };
 
+        // Stock available for one cart line. A custom bouquet draws from no
+        // catalog pool, so it reports the safe per-order maximum instead of a
+        // shop product's number.
+        const cartLineStock = (line) =>
+            isMadeToOrder(line) ? MADE_TO_ORDER_MAX : getLiveStock(line.itemId);
+
+        // Live price lookup. The cart stores a price snapshot, so the
+        // cart/checkout/payment screens and the charged order total must
+        // all read the current inventory price — otherwise an admin
+        // price edit while an item sits in a cart makes the confirmed
+        // total differ from the amount actually charged.
+        const getLivePrice = (cartItem) => {
+            // Custom bouquets are flat-priced and never read the catalog price
+            if (isMadeToOrder(cartItem)) return CUSTOM_BOUQUET_PRICE;
+            const inv = inventory.value.find(i => i.id === (cartItem && cartItem.itemId));
+            if (inv) return Number(inv.unitPrice) || 0;
+            return Number(cartItem && cartItem.unitPrice) || 0;
+        };
+
         // Product photo lookup — accepts an item object or an itemId string.
         // Uploaded photos are stored as data:/https URLs; seed photos are filenames
         // inside /Flower_images/. Falls back to the PRODUCT_IMAGES map when the
@@ -1502,7 +1860,9 @@ createApp({
             const toUrl = (file) => {
                 if (!file) return '';
                 if (/^(data:|https?:|blob:)/i.test(file)) return file;
-                return '../Flower_images/' + file;
+                // Bundled photos are stored as WebP (same base name)
+                const webp = file.replace(/\.(png|jpe?g)$/i, ASSET_EXT);
+                return '../Flower_images/' + webp;
             };
             // Prefer an explicit image on the passed object (e.g. the edit form preview)
             if (typeof itemOrId === 'object' && itemOrId && itemOrId.image) return toUrl(itemOrId.image);
@@ -1517,9 +1877,157 @@ createApp({
         // Records image load failures so templates can fall back to the icon placeholder
         const imageLoadErrors = ref({});
 
+        // --- Order line items -------------------------------------------------
+        // Every order exposes its lines in one shape regardless of how it was
+        // created: an explicit `items` array (multi-item admin order), the
+        // customer's `cartItems` from checkout, or a legacy single-item order
+        // that only stores bouquetType + quantity.
+        const orderItems = (order) => {
+            if (!order) return [];
+            if (Array.isArray(order.items) && order.items.length > 0) return order.items;
+            if (Array.isArray(order.cartItems) && order.cartItems.length > 0) return order.cartItems;
+            if (order.bouquetType) {
+                return [{
+                    itemId: '',
+                    itemName: order.bouquetType,
+                    unitPrice: Number(order.price) || 0,
+                    quantity: Number(order.quantity) || 1
+                }];
+            }
+            return [];
+        };
+
+        // --- Custom bouquet creation details (customer popup + admin view) ---
+        const cap = (s) => {
+            const v = String(s || '');
+            return v.charAt(0).toUpperCase() + v.slice(1);
+        };
+        const slugLabel = (s) => String(s || '').split('-').filter(Boolean).map(cap).join(' ');
+        const flowerCounts = (labels) => {
+            const counts = {};
+            (labels || []).filter(Boolean).forEach((label) => {
+                counts[label] = (counts[label] || 0) + 1;
+            });
+            return Object.keys(counts).map((label) => ({ label: label, n: counts[label] }));
+        };
+        const designFlowerLabels = (cus) => {
+            if (!cus) return [];
+            if (Array.isArray(cus.bouquetFlowers) && cus.bouquetFlowers.some(Boolean)) {
+                return cus.bouquetFlowers.filter(Boolean);
+            }
+            return ((cus.bouquet && cus.bouquet.flowers) || [])
+                .map((f) => cap(f.type) + ' — ' + cap(f.color));
+        };
+
+        // One entry per customized line: exactly what the customer designed.
+        // Feeds both the customer's details popup and the admin's view popup
+        // (flower names live here, not on the table rows).
+        const orderDesigns = (order) => {
+            if (!order) return [];
+            const out = [];
+            (order.cartItems || []).forEach((ci, idx) => {
+                const cus = ci.customizations;
+                if (!cus || (!cus.bouquet && !cus.bouquetFlowers)) return;
+                const b = cus.bouquet || {};
+                out.push({
+                    key: (ci.lineId || ci.itemId || 'line') + '-' + idx,
+                    itemName: ci.itemName || 'Custom Bouquet',
+                    quantity: Number(ci.quantity) || 1,
+                    wrapperColor: cus.wrapperColor || slugLabel(b.wrapper) || order.wrappingColor || '',
+                    ribbonColor: cus.ribbonColor || slugLabel(b.ribbon) || order.ribbonColor || '',
+                    flowers: flowerCounts(designFlowerLabels(cus)),
+                    message: cus.message || '',
+                    c: {
+                        bouquet: b,
+                        wrapperColor: cus.wrapperColor || slugLabel(b.wrapper),
+                        ribbonColor: cus.ribbonColor || slugLabel(b.ribbon)
+                    }
+                });
+            });
+            // Legacy orders only kept the composed bouquet itself
+            if (out.length === 0) {
+                (order.bouquets || []).forEach((bq, idx) => {
+                    const b = (bq && bq.bouquet) || {};
+                    const inv = inventory.value.find((i) => i.id === bq.itemId);
+                    out.push({
+                        key: 'bq-' + idx,
+                        itemName: inv ? inv.itemName : 'Custom Bouquet',
+                        quantity: Number(order.quantity) || 1,
+                        wrapperColor: slugLabel(b.wrapper) || order.wrappingColor || '',
+                        ribbonColor: slugLabel(b.ribbon) || order.ribbonColor || '',
+                        flowers: flowerCounts(((b.flowers) || []).map((f) => cap(f.type) + ' — ' + cap(f.color))),
+                        message: '',
+                        c: {
+                            bouquet: b,
+                            wrapperColor: slugLabel(b.wrapper),
+                            ribbonColor: slugLabel(b.ribbon)
+                        }
+                    });
+                });
+            }
+            return out;
+        };
+
+        // Plain catalogue lines on the same order (custom lines are already
+        // described by orderDesigns).
+        const nonDesignItems = (order) => {
+            if (!order) return [];
+            const designs = orderDesigns(order);
+            return orderItems(order).filter((li) => {
+                if (li.madeToOrder) return false;
+                if (li.customizations && (li.customizations.bouquet || li.customizations.bouquetFlowers)) return false;
+                if (designs.length > 0 && !li.itemId) return false;
+                return true;
+            });
+        };
+
+        // Every flower used on the whole order, with its stem count
+        const orderFlowersTotal = (order) => {
+            const labels = [];
+            orderDesigns(order).forEach((d) => {
+                d.flowers.forEach((f) => {
+                    for (let i = 0; i < f.n; i++) labels.push(f.label);
+                });
+            });
+            return flowerCounts(labels);
+        };
+
+        // Checkout bakes the quantity into bouquetType ("Roses x2"). The My
+        // Orders row shows the name without that tail and puts the quantity in
+        // the blue badge instead, so every quantity looks the same.
+        const bouquetLabel = (order) => {
+            if (!order) return '';
+            const type = String(order.bouquetType || '').trim();
+            const qty = Number(order.quantity) || 1;
+            const m = /^(.*?)\s+x(\d+)$/i.exec(type);
+            if (m && Number(m[2]) === qty) return m[1].trim();
+            return type;
+        };
+
+        // Photo for a single line item. Prefers the inventory id, then falls
+        // back to matching by name for orders recorded before ids existed.
+        const lineItemImage = (line) => {
+            if (!line) return '';
+            if (line.itemId) {
+                const byId = getProductImage(line.itemId);
+                if (byId) return byId;
+            }
+            if (line.itemName) {
+                const inv = inventory.value.find(i => i.itemName === line.itemName);
+                if (inv) {
+                    const byName = getProductImage(inv.id);
+                    if (byName) return byName;
+                }
+            }
+            return '';
+        };
+
+        // Per-src load-failure flags for order thumbnails
+        const orderImageFailures = ref({});
+
         // Does the cart still fit inside current stock?
         const cartStockIssues = computed(() => {
-            return cart.value.filter(c => c.quantity > getLiveStock(c.itemId));
+            return cart.value.filter(c => !isMadeToOrder(c) && c.quantity > getLiveStock(c.itemId));
         });
 
         // Estimated delivery: order date + 3 days
@@ -1549,6 +2057,58 @@ createApp({
         const myOrders = computed(() => {
             const userName = currentUser.value ? currentUser.value.name : '';
             return orders.value.filter(o => o.customerName === userName);
+        });
+
+        // Same kind of flowers bought more than once collapses into ONE
+        // row: a single thumbnail with a blue "x N" count badge hanging on
+        // its left edge. Every merged order stays reachable through the
+        // clickable ID chips in the first column.
+        const groupImageErrors = ref({});
+
+        const groupedMyOrders = computed(() => {
+            const groups = [];
+            const byKind = {};
+            myOrders.value.forEach((order) => {
+                const name = ((order.bouquetType || '').trim()) || 'Custom Bouquet';
+                const key = name.toLowerCase();
+                if (!byKind[key]) {
+                    byKind[key] = {
+                        key: key,
+                        name: name,
+                        image: lineItemImage({ itemId: '', itemName: name }),
+                        orders: []
+                    };
+                    groups.push(byKind[key]);
+                }
+                byKind[key].orders.push(order);
+            });
+            return groups.map((g) => {
+                const newest = g.orders[0];
+                const messages = [];
+                g.orders.forEach((o) => {
+                    if (o.customMessage && messages.indexOf(o.customMessage) === -1) {
+                        messages.push(o.customMessage);
+                    }
+                });
+                return {
+                    key: g.key,
+                    name: g.name,
+                    image: g.image,
+                    orders: g.orders,
+                    count: g.orders.length,
+                    newest: newest,
+                    date: newest.date,
+                    total: g.orders.reduce((sum, o) => sum + (Number(o.price) || 0), 0),
+                    messages: messages
+                };
+            });
+        });
+
+        const orderStatusBadgeClass = (status) => ({
+            'badge-pending': status === 'Pending',
+            'badge-in-progress': status === 'Processing',
+            'badge-completed': status === 'Shipped',
+            'badge-delivered': status === 'Completed'
         });
 
         const viewOrderDetails = (order) => {
@@ -1612,7 +2172,7 @@ createApp({
 
         // --- Cart Functions ---
         const cartCount = computed(() => cart.value.reduce((sum, item) => sum + item.quantity, 0));
-        const cartTotal = computed(() => cart.value.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0));
+        const cartTotal = computed(() => cart.value.reduce((sum, item) => sum + getLivePrice(item) * item.quantity, 0));
 
         // Brief animation whenever an item lands in the cart
         const cartPulse = ref(false);
@@ -1624,29 +2184,36 @@ createApp({
             cartPulseTimer = setTimeout(() => { cartPulse.value = false; }, 700);
         };
 
-        const addToCart = (item, customizations) => {
-            const liveStock = getLiveStock(item.id);
-            if (liveStock <= 0) {
+        const addToCart = (item, customizations, qty) => {
+            // Custom bouquets are made to order: no stock pool applies, so the
+            // catalog item only supplies an identity and the flat price.
+            const madeToOrder = !!(customizations && customizations.bouquet);
+            const addQty = Math.max(1, Number(qty) || 1);
+            const liveStock = madeToOrder ? MADE_TO_ORDER_MAX : getLiveStock(item.id);
+            if (!madeToOrder && liveStock <= 0) {
                 showToast(`${item.itemName} is out of stock`, 'error');
                 return;
             }
-            const sig = customizations ? JSON.stringify(customizations) : null;
+            // Both sides must serialize the same way, otherwise a plain add never
+            // matches the stored line (JSON.stringify(null) is "null", not null)
+            // and the same product ends up as several single-unit lines.
+            const sig = JSON.stringify(customizations || null);
             const existing = cart.value.find(c =>
                 c.itemId === item.id && JSON.stringify(c.customizations || null) === sig
             );
             if (existing) {
-                if (existing.quantity >= liveStock) {
+                if (!madeToOrder && existing.quantity + addQty > liveStock) {
                     showToast(`Cannot add more. Only ${liveStock} in stock.`, 'error');
                     return;
                 }
-                existing.quantity += 1;
+                existing.quantity += addQty;
             } else {
                 const entry = {
                     lineId: item.id + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
                     itemId: item.id,
                     itemName: item.itemName,
-                    unitPrice: Number(item.unitPrice) || 0,
-                    quantity: 1,
+                    unitPrice: madeToOrder ? CUSTOM_BOUQUET_PRICE : (Number(item.unitPrice) || 0),
+                    quantity: addQty,
                     stock: liveStock
                 };
                 if (customizations) entry.customizations = customizations;
@@ -1659,8 +2226,11 @@ createApp({
         };
 
         const updateCartQuantity = (cartItem, newQty) => {
-            const invItem = inventory.value.find(i => i.id === cartItem.itemId);
-            const maxStock = invItem ? Number(invItem.stock) : Number(cartItem.stock) || 0;
+            const madeToOrder = isMadeToOrder(cartItem);
+            const invItem = madeToOrder ? null : inventory.value.find(i => i.id === cartItem.itemId);
+            const maxStock = madeToOrder
+                ? MADE_TO_ORDER_MAX
+                : (invItem ? Number(invItem.stock) : Number(cartItem.stock) || 0);
             let qty = Number(newQty);
             if (!Number.isFinite(qty) || qty < 1) qty = 1;
             // Only clamp down when the item is actually buyable. If stock is 0 we
@@ -1668,7 +2238,9 @@ createApp({
             // clamping to 0 would silently let a zero-quantity line reach checkout.
             if (maxStock >= 1 && qty > maxStock) {
                 qty = maxStock;
-                showToast(`Only ${maxStock} in stock`, 'warning');
+                showToast(madeToOrder
+                    ? `Maximum ${MADE_TO_ORDER_MAX} custom bouquets per order`
+                    : `Only ${maxStock} in stock`, 'warning');
             }
             cartItem.quantity = qty;
         };
@@ -1692,6 +2264,143 @@ createApp({
 
         const isInCart = (itemId) => {
             return cart.value.some(c => c.itemId === itemId);
+        };
+
+        // --- Cart selection (mobile-first sticky bar) ---
+        // Ticking rows on the cart screen decides exactly what checkout buys.
+        const cartSelected = ref([]);
+
+        const cartLineKey = (item) => item.lineId || item.itemId;
+
+        const isCartSelected = (key) => cartSelected.value.includes(key);
+
+        const toggleCartSelected = (item) => {
+            const key = cartLineKey(item);
+            const i = cartSelected.value.indexOf(key);
+            if (i === -1) cartSelected.value.push(key);
+            else cartSelected.value.splice(i, 1);
+        };
+
+        const cartAllSelected = computed(() =>
+            cart.value.length > 0 && cartSelected.value.length === cart.value.length
+        );
+
+        const toggleSelectAllCart = () => {
+            cartSelected.value = cartAllSelected.value
+                ? []
+                : cart.value.map(cartLineKey);
+        };
+
+        // Drop keys whose cart lines are gone (deleted / cleared)
+        watch(cart, (lines) => {
+            const keys = new Set(lines.map(cartLineKey));
+            cartSelected.value = cartSelected.value.filter(k => keys.has(k));
+        }, { deep: true });
+
+        const cartSelectedItems = computed(() =>
+            cart.value.filter(c => cartSelected.value.includes(cartLineKey(c)))
+        );
+
+        const cartSelectedCount = computed(() =>
+            cartSelectedItems.value.reduce((sum, item) => sum + item.quantity, 0)
+        );
+
+        const cartSelectedTotal = computed(() =>
+            cartSelectedItems.value.reduce((sum, item) => sum + getLivePrice(item) * item.quantity, 0)
+        );
+
+        // Anything in the selection that breaks the stock rule blocks checkout
+        const cartSelectedIssues = computed(() =>
+            cartSelectedItems.value.filter(c => !isMadeToOrder(c) && c.quantity > getLiveStock(c.itemId))
+        );
+
+        const checkoutSelected = () => {
+            if (cartSelectedItems.value.length === 0) {
+                showToast('Tick at least one item to check out', 'warning');
+                return;
+            }
+            if (cartSelectedIssues.value.length > 0) {
+                showToast('Adjust the quantities that exceed stock first', 'error');
+                return;
+            }
+            safeSetItem(sessionStorage, 'blooms_checkout_lines',
+                JSON.stringify(cartSelected.value));
+            navigateTo('checkout');
+        };
+
+        // The lines the checkout/payment flow actually acts on. When nothing was
+        // ticked (bookmark, back button, direct link) every line is bought.
+        const checkoutLines = () => {
+            const ids = safeGetJSON(sessionStorage, 'blooms_checkout_lines', []);
+            const picked = ids.length
+                ? cart.value.filter(c => ids.includes(c.lineId || c.itemId))
+                : cart.value;
+            return picked.length ? picked : cart.value;
+        };
+
+        // Reactive views of the same list, for the checkout/payment summaries
+        const checkoutCart = computed(() => checkoutLines());
+        const checkoutCount = computed(() =>
+            checkoutCart.value.reduce((sum, item) => sum + item.quantity, 0)
+        );
+        const checkoutSubtotal = computed(() =>
+            checkoutCart.value.reduce((sum, item) => sum + getLivePrice(item) * item.quantity, 0)
+        );
+
+        // --- Swipe-to-delete on touch devices ---
+        // Only the row moves. `touch-action: pan-y` in CSS keeps the browser from
+        // scrolling the page sideways while the finger drags.
+        const SWIPE_REVEAL = 104;
+        const swipeKey = ref(null);
+        const swipeDx = ref(0);
+        let swipeOriginX = 0;
+        let swipeOriginY = 0;
+        let swipeAxis = null;
+
+        const closeCartSwipe = () => {
+            swipeKey.value = null;
+            swipeDx.value = 0;
+        };
+
+        const swipeStart = (e, item) => {
+            const t = e.touches && e.touches[0];
+            if (!t) return;
+            swipeKey.value = cartLineKey(item);
+            swipeOriginX = t.clientX;
+            swipeOriginY = t.clientY;
+            swipeAxis = null;
+            swipeDx.value = 0;
+        };
+
+        const swipeMove = (e, item) => {
+            if (swipeKey.value !== cartLineKey(item)) return;
+            const t = e.touches && e.touches[0];
+            if (!t) return;
+            const dx = t.clientX - swipeOriginX;
+            const dy = t.clientY - swipeOriginY;
+
+            // Decide once which direction owns the gesture — a vertical drag is
+            // the user scrolling, so the row stays put.
+            if (swipeAxis === null) {
+                if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+                swipeAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+                if (swipeAxis === 'y') return;
+            }
+            if (swipeAxis !== 'x') return;
+            if (e.cancelable) e.preventDefault();
+            swipeDx.value = Math.max(-SWIPE_REVEAL, Math.min(0, dx));
+        };
+
+        const swipeEnd = (e, item) => {
+            if (swipeKey.value !== cartLineKey(item)) return;
+            if (swipeAxis === 'x') {
+                // Past half the reveal distance, keep the delete button open
+                swipeDx.value = swipeDx.value <= -SWIPE_REVEAL / 2 ? -SWIPE_REVEAL : 0;
+                if (swipeDx.value === 0) swipeKey.value = null;
+            } else {
+                closeCartSwipe();
+            }
+            swipeAxis = null;
         };
 
         // --- Bouquet Customization (customer side) ---
@@ -1740,10 +2449,8 @@ createApp({
         });
 
         const customizerPrice = computed(() => {
-            const flower = selectedCustomFlower.value;
-            if (!flower) return 0;
             const qty = Math.max(1, Number(customForm.value.quantity) || 1);
-            return Number(flower.unitPrice) * qty;
+            return CUSTOM_BOUQUET_PRICE * qty;
         });
 
         const setWrapper = (name) => {
@@ -1787,7 +2494,7 @@ createApp({
             { name: 'White', key: 'white', hex: '#f1f5f9' }
         ];
         const flowerAssetSrc = (type, color) =>
-            BOUQUET_ASSET_DIR + '/flowers/' + type + '__' + color + '.png';
+            BOUQUET_ASSET_DIR + '/flowers/' + type + '__' + color + ASSET_EXT;
         const flowerThumb = (type, color) => flowerAssetSrc(type, color);
 
         const bouquetSlots = ref([null, null, null, null, null, null]);
@@ -1799,25 +2506,43 @@ createApp({
             const s = bouquetSlots.value[i];
             return s ? flowerAssetSrc(s.type, s.color) : '';
         };
+        // Short confirmation shown under the flower picker so the customer
+        // knows the tap registered and where the next flower will land.
+        const flowerStatusMsg = ref('');
+        let flowerStatusTimer = null;
+        const flashFlowerStatus = (msg) => {
+            flowerStatusMsg.value = msg;
+            if (flowerStatusTimer) clearTimeout(flowerStatusTimer);
+            flowerStatusTimer = setTimeout(() => { flowerStatusMsg.value = ''; }, 3000);
+        };
+
         const placeInSlot = (i) => {
             bouquetSlots.value[i] = { type: flowerBrush.value.type, color: flowerBrush.value.color };
             if (customErrors.value.slots) delete customErrors.value.slots;
             // auto-advance to the next empty slot for fast building
             const next = bouquetSlots.value.findIndex((s, idx) => idx !== i && !s);
             activeSlot.value = next >= 0 ? next : i;
+            flashFlowerStatus(next >= 0
+                ? 'Flower added! Next slot selected.'
+                : 'All 6 flowers selected!');
         };
         const clearSlot = (i) => {
             bouquetSlots.value[i] = null;
             activeSlot.value = i;
+            flowerStatusMsg.value = '';
         };
         const clearSlots = () => {
             bouquetSlots.value = [null, null, null, null, null, null];
             activeSlot.value = 0;
+            flowerStatusMsg.value = '';
         };
         const fillEmptySlots = () => {
             bouquetSlots.value = bouquetSlots.value.map((s) =>
                 s || { type: flowerBrush.value.type, color: flowerBrush.value.color });
             if (customErrors.value.slots) delete customErrors.value.slots;
+            activeSlot.value = bouquetSlots.value.findIndex((s) => !s);
+            if (activeSlot.value < 0) activeSlot.value = 5;
+            flashFlowerStatus('All 6 flowers selected!');
         };
         const slotLabel = (s) => s
             ? s.type.charAt(0).toUpperCase() + s.type.slice(1) + ' — ' +
@@ -1841,9 +2566,9 @@ createApp({
         const bouquetPreview = computed(() => ({
             // preview falls back to a default look until the customer picks one
             wrapperSrc: BOUQUET_ASSET_DIR + '/wrappers/linewrap_' +
-                previewSlug(customForm.value.wrapperColor || 'Rose Pink') + '.png',
+                previewSlug(customForm.value.wrapperColor || 'Rose Pink') + ASSET_EXT,
             bowSrc: BOUQUET_ASSET_DIR + '/bows/ribbonbow_' +
-                previewSlug(customForm.value.ribbonColor || 'White Satin') + '.png'
+                previewSlug(customForm.value.ribbonColor || 'White Satin') + ASSET_EXT
         }));
         const previewHoleStyle = (hole) => ({
             left: (hole.x / PREVIEW_CANVAS * 100) + '%',
@@ -1863,13 +2588,10 @@ createApp({
                 errors.slots = `A bouquet needs exactly 6 flowers — you have chosen ${filled}/6`;
             }
             const flower = selectedCustomFlower.value;
-            if (flower) {
-                const live = getLiveStock(flower.id);
-                if (live <= 0) errors.itemId = `${flower.itemName} is out of stock`;
-                else if (Number(form.quantity) > live) errors.quantity = `Only ${live} in stock`;
-            } else {
+            if (!flower) {
                 errors.itemId = 'No matching flower item in inventory';
             }
+            // Stock never applies here: a custom bouquet is assembled to order.
             if (!form.wrapperColor) errors.wrapperColor = 'Please choose a wrapper color';
             if (!form.ribbonColor) errors.ribbonColor = 'Please choose a ribbon color';
             if ((form.message || '').length > 200) errors.message = 'Message must be 200 characters or less';
@@ -1889,7 +2611,7 @@ createApp({
                     ribbon: previewSlug(form.ribbonColor),
                     flowers: bouquetSlots.value.filter(Boolean).map((s) => ({ type: s.type, color: s.color }))
                 }
-            });
+            }, form.quantity);
 
             // Reset the bouquet + letter + quantity, then head to the cart
             clearSlots();
@@ -2035,7 +2757,8 @@ createApp({
         };
 
         const goToPayment = () => {
-            if (cart.value.length === 0) {
+            const lines = checkoutLines();
+            if (lines.length === 0) {
                 flashToast('Your cart is empty', 'error');
                 navigateTo('shop');
                 return;
@@ -2043,13 +2766,27 @@ createApp({
 
             if (!validateCheckout()) return;
 
-            // Validate stock one more time before payment.
-            // Uses cartStockIssues so a deleted inventory item counts as a failure
-            // too (a plain `if (invItem && ...)` would silently skip it).
-            if (cartStockIssues.value.length > 0) {
-                const names = cartStockIssues.value.map(c => c.itemName).join(', ');
-                showToast(`Not enough stock for ${names}`, 'error');
-                return;
+            // Validate stock one more time before payment — only for the lines
+            // being bought, and grouped by product so custom lines sharing one
+            // stock pool are checked together (same rule placeOrder enforces).
+            // Custom bouquets are made to order and never pass through here.
+            const requested = {};
+            for (const line of lines) {
+                if (isMadeToOrder(line)) continue;
+                const qty = Number(line.quantity);
+                const live = getLiveStock(line.itemId);
+                if (!Number.isFinite(qty) || qty < 1 || qty > live) {
+                    showToast(`Not enough stock for ${line.itemName}`, 'error');
+                    return;
+                }
+                requested[line.itemId] = (requested[line.itemId] || 0) + qty;
+            }
+            for (const itemId of Object.keys(requested)) {
+                if (requested[itemId] > getLiveStock(itemId)) {
+                    const inv = inventory.value.find(i => i.id === itemId);
+                    showToast(`Not enough stock for ${inv ? inv.itemName : itemId}`, 'error');
+                    return;
+                }
             }
 
             // Set CSRF token
@@ -2182,8 +2919,20 @@ createApp({
                 return;
             }
 
-            // Validate stock (recalculate on "server")
-            for (const cartItem of cart.value) {
+            // Only the lines ticked on the cart screen are purchased. Falling back
+            // to the whole cart keeps direct /checkout links working.
+            const buyLines = checkoutLines();
+            if (buyLines.length === 0) {
+                flashToast('No items selected for checkout', 'error');
+                navigateTo('cart');
+                return;
+            }
+
+            // Validate stock (recalculate on "server"). Custom bouquets are made
+            // to order, so they are excluded from every stock check.
+            const requestedByItem = {};
+            for (const cartItem of buyLines) {
+                if (isMadeToOrder(cartItem)) continue;
                 const invItem = inventory.value.find(i => i.id === cartItem.itemId);
                 const qty = Number(cartItem.quantity);
                 if (!invItem || !Number.isFinite(qty) || qty < 1 || qty > Number(invItem.stock)) {
@@ -2191,11 +2940,27 @@ createApp({
                     navigateTo('cart');
                     return;
                 }
+                requestedByItem[cartItem.itemId] = (requestedByItem[cartItem.itemId] || 0) + qty;
+            }
+
+            // Customized lines of one product share a single stock pool, so the
+            // combined quantity has to fit as well
+            for (const itemId of Object.keys(requestedByItem)) {
+                const invItem = inventory.value.find(i => i.id === itemId);
+                if (invItem && requestedByItem[itemId] > Number(invItem.stock)) {
+                    flashToast(`Not enough stock for ${invItem.itemName}. Please adjust your cart.`, 'error');
+                    navigateTo('cart');
+                    return;
+                }
             }
 
             // Recalculate total on "server" (never trust browser)
             let serverTotal = 0;
-            for (const cartItem of cart.value) {
+            for (const cartItem of buyLines) {
+                if (isMadeToOrder(cartItem)) {
+                    serverTotal += CUSTOM_BOUQUET_PRICE * (Number(cartItem.quantity) || 1);
+                    continue;
+                }
                 const invItem = inventory.value.find(i => i.id === cartItem.itemId);
                 if (invItem) {
                     serverTotal += Number(invItem.unitPrice) * cartItem.quantity;
@@ -2211,28 +2976,53 @@ createApp({
             // --- Transactional save (all or nothing) ---
             try {
                 const newOrderId = nextRecordId('ORD', orders.value, 105);
-                const today = new Date().toISOString().substr(0, 10);
+                const today = todayLocal();
 
                 // Wrapper & ribbon colors chosen in the bouquet customizer (per cart line)
                 const chosenWrappers = [...new Set(
-                    cart.value
+                    buyLines
                         .map(c => (c.customizations && c.customizations.wrapperColor) || null)
                         .filter(Boolean)
                 )];
                 const chosenRibbons = [...new Set(
-                    cart.value
+                    buyLines
                         .map(c => (c.customizations && c.customizations.ribbonColor) || null)
                         .filter(Boolean)
                 )];
 
                 // 1. Create order record
+                const orderItems = buyLines.map(c => {
+                    const unit = isMadeToOrder(c) ? CUSTOM_BOUQUET_PRICE : (Number(c.unitPrice) || 0);
+                    const qty = Number(c.quantity) || 1;
+                    return {
+                        itemId: c.itemId,
+                        itemName: c.itemName,
+                        unitPrice: unit,
+                        quantity: qty,
+                        lineTotal: unit * qty,
+                        wrappingColor: (c.customizations && c.customizations.wrapperColor) || '',
+                        ribbonColor: (c.customizations && c.customizations.ribbonColor) || '',
+                        madeToOrder: isMadeToOrder(c)
+                    };
+                });
+
+                // Preserve bouquet composition for custom lines so admin can render the preview
+                const orderBouquets = buyLines
+                    .filter(c => c.customizations && c.customizations.bouquet)
+                    .map(c => ({
+                        itemId: c.itemId,
+                        bouquet: c.customizations.bouquet
+                    }));
+
                 const orderData = {
                     id: newOrderId,
                     customerName: userName,
                     contactNumber: checkoutForm.value.contactNumber.trim(),
                     deliveryAddress: checkoutForm.value.deliveryAddress.trim(),
-                    bouquetType: cart.value.map(c => `${c.itemName} x${c.quantity}`).join(', '),
-                    quantity: cart.value.reduce((s, c) => s + c.quantity, 0),
+                    items: orderItems,
+                    bouquets: orderBouquets,
+                    bouquetType: buyLines.map(c => `${c.itemName} x${c.quantity}`).join(', '),
+                    quantity: buyLines.reduce((s, c) => s + c.quantity, 0),
                     wrappingColor: chosenWrappers.length > 0 ? chosenWrappers.join(', ') : 'Standard Wrap',
                     ribbonColor: chosenRibbons.length > 0 ? chosenRibbons.join(', ') : 'Standard Ribbon',
                     price: serverTotal,
@@ -2248,15 +3038,16 @@ createApp({
                     customMessage: checkoutForm.value.notes || '',
                     isCustomerOrder: true,
                     csrfToken: checkoutForm.value.csrfToken,
-                    cartItems: JSON.parse(JSON.stringify(cart.value))
+                    cartItems: JSON.parse(JSON.stringify(buyLines))
                 };
                 orders.value.unshift({ ...orderData });
 
                 // 2. Create item records (one per product)
                 // (tracked via cartItems in order)
 
-                // 3. Deduct stock
-                for (const cartItem of cart.value) {
+                // 3. Deduct stock (made-to-order lines have no stock pool to draw from)
+                for (const cartItem of buyLines) {
+                    if (isMadeToOrder(cartItem)) continue;
                     const invItem = inventory.value.find(i => i.id === cartItem.itemId);
                     if (invItem) {
                         invItem.stock = Math.max(0, Number(invItem.stock) - cartItem.quantity);
@@ -2264,21 +3055,10 @@ createApp({
                     }
                 }
 
-                // 4. Create sale record
-                if (method === 'GCash') {
-                    sales.value.unshift({
-                        id: nextRecordId('SAL', sales.value, 501),
-                        orderId: newOrderId,
-                        customerName: userName,
-                        amount: orderSaleAmount(orderData),
-                        paymentMethod: 'GCash',
-                        date: today,
-                        notes: `GCash ref: ${paymentForm.value.gcashReference}`
-                    });
-                }
-
-                // 5. Clear cart
-                cart.value = [];
+                // 5. Clear only the lines that were just purchased
+                const boughtKeys = new Set(buyLines.map(c => c.lineId || c.itemId));
+                cart.value = cart.value.filter(c => !boughtKeys.has(c.lineId || c.itemId));
+                safeSetItem(sessionStorage, 'blooms_checkout_lines', '[]');
 
                 // 6. Write notification
                 addNotification(newOrderId, `Order ${newOrderId} has been placed successfully.`, 'order', userName);
@@ -2313,6 +3093,15 @@ createApp({
         // In production: use Argon2id on the server (NEVER hash on client)
         // This is a demo-only SHA-256 via Web Crypto API
         const hashPassword = async (password) => {
+            // Password hashing needs SubtleCrypto, which browsers only expose in a
+            // secure context (https:// or localhost). Fail loudly instead of
+            // throwing an opaque TypeError on a plain-http host. Returns null
+            // (never '') so a failed hash can never match a stored hash —
+            // an empty-string hash would authenticate with ANY password.
+            if (!window.crypto || !window.crypto.subtle) {
+                flashToast('Secure connection required. Please open this site with https://', 'error');
+                return null;
+            }
             const encoder = new TextEncoder();
             const data = encoder.encode(password);
             const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -2320,37 +3109,104 @@ createApp({
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         };
 
-        // Seed admin account (runs once on first load)
-        // In production: create admin via server-side seeder, never in browser
-        const seedAdminAccount = async () => {
-            const users = getUsers();
-            const adminEmail = 'jenelyn.ortiz@bloomsbyjen.com';
+        // Demo state seeding (runs once on first load).
+        //
+        // Jobs:
+        //   1. Keep any owner account that is already present verified.
+        //   2. Make sure the demo owner below exists on this browser -
+        //      fresh profile or one that already holds another admin - so
+        //      the autofilled demo credentials always log in, and so the
+        //      first-registrant-becomes-admin fallback in handleRegister
+        //      can never fire while that account exists.
+        //   3. Write the sample orders, inventory and sales to storage the
+        //      first time they are missing.
+        //
+        // This is simulated auth: the account is written straight into
+        // this browser's localStorage on first load. There is no server.
+        const DEMO_OWNER_EMAIL = 'admin@bloomsbyjen.demo';
+        const DEMO_OWNER_PASSWORD = 'BloomsAdmin123!';
 
-            const existing = users.find(u => u.email.toLowerCase() === adminEmail);
-            if (existing) {
-                // Ensure the existing account has admin role
-                if (existing.role !== 'admin') {
-                    existing.role = 'admin';
-                    existing.isVerified = true;
-                    saveUsers(users);
-                }
-                return;
-            }
-
-            const passwordHash = await hashPassword('password123');
-            users.push({
+        const buildDemoOwner = async () => {
+            const createdAt = new Date().toISOString();
+            return {
                 id: 'USR-000',
-                name: 'Jenelyn Ortiz',
-                email: adminEmail,
-                passwordHash: passwordHash,
+                fullname: 'Jen',
+                role: 'admin',
+                country: 'PH',
+                created_at: createdAt,
+                firstName: 'Jen',
+                lastName: '',
+                name: 'Jen',
+                email: DEMO_OWNER_EMAIL,
+                phone: '09171234567',
+                street: '123 Rose Street',
+                apartment: '',
+                barangay: 'Poblacion',
+                province: 'Bulacan',
+                city: 'City of Baliwag',
+                // null when the page is not a secure context (hashPassword
+                // refuses there) — never store an owner that cannot log in.
+                passwordHash: await hashPassword(DEMO_OWNER_PASSWORD),
                 isVerified: true,
                 verificationToken: '',
                 verificationTokenExpires: 0,
                 csrfToken: '',
-                createdAt: new Date().toISOString(),
-                role: 'admin'
+                createdAt: createdAt,
+                isDemoOwner: true
+            };
+        };
+
+        const seedDemoState = async () => {
+            const users = getUsers();
+            let changed = false;
+            users.forEach((u) => {
+                if (u.role === 'admin' && !u.isVerified) {
+                    u.isVerified = true;
+                    changed = true;
+                }
             });
-            saveUsers(users);
+            // The demo owner must exist on EVERY browser, even one that
+            // already holds another admin (e.g. the owner's own laptop).
+            // Otherwise the autofilled demo credentials match no account
+            // and login flags the email field as "Invalid email".
+            const demoIdx = users.findIndex((u) => u.email === DEMO_OWNER_EMAIL);
+            if (demoIdx === -1) {
+                const owner = await buildDemoOwner();
+                if (owner.passwordHash) {
+                    users.push(owner);
+                    changed = true;
+                }
+            } else if (users[demoIdx].isDemoOwner && window.crypto && window.crypto.subtle) {
+                // Self-heal: keep the seeded owner in step with the demo
+                // credentials and display name in case storage still holds
+                // an older copy of this account.
+                const expectedHash = await hashPassword(DEMO_OWNER_PASSWORD);
+                if (expectedHash && expectedHash !== users[demoIdx].passwordHash) {
+                    users[demoIdx].passwordHash = expectedHash;
+                    users[demoIdx].isVerified = true;
+                    changed = true;
+                }
+                if (users[demoIdx].name !== 'Jen' || users[demoIdx].fullname !== 'Jen' || users[demoIdx].lastName !== '') {
+                    users[demoIdx].fullname = 'Jen';
+                    users[demoIdx].name = 'Jen';
+                    users[demoIdx].firstName = 'Jen';
+                    users[demoIdx].lastName = '';
+                    changed = true;
+                }
+            }
+            if (changed) saveUsers(users);
+
+            // Sample data: a fresh demo browser must open with the demo
+            // orders, inventory and sales already in storage, not only in
+            // memory. Only keys that are completely missing are filled, so
+            // whatever the demo adds or edits is never overwritten.
+            [['blooms_orders', initialOrders],
+             ['blooms_inventory', initialInventory],
+             ['blooms_sales', initialSales]].forEach(([key, initial]) => {
+                if (safeGetJSON(localStorage, key, null) === null) {
+                    safeSetItem(localStorage, key, JSON.stringify(initial));
+                }
+            });
         };
 
         // Rate limiting (simulated client-side)
@@ -2407,13 +3263,31 @@ createApp({
             }, 1000);
         };
 
-        // Password requirements checks (spec: minimum 6 characters)
+        // Password requirements (spec: 8+ characters, 1 uppercase, 1 lowercase, 1 number)
         const pwChecks = computed(() => {
             const pw = registerForm.value.password || '';
             return {
-                length: pw.length >= 6
+                length: pw.length >= 8,
+                upper: /[A-Z]/.test(pw),
+                lower: /[a-z]/.test(pw),
+                number: /[0-9]/.test(pw)
             };
         });
+
+        const pwRequirementsMet = computed(() => {
+            const checks = pwChecks.value;
+            return checks.length && checks.upper && checks.lower && checks.number;
+        });
+
+        const pwMissingRequirements = () => {
+            const checks = pwChecks.value;
+            const missing = [];
+            if (!checks.length) missing.push('at least 8 characters');
+            if (!checks.upper) missing.push('an uppercase letter');
+            if (!checks.lower) missing.push('a lowercase letter');
+            if (!checks.number) missing.push('a number');
+            return missing;
+        };
 
         const isValidEmail = (email) => {
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -2563,7 +3437,7 @@ createApp({
         const deliveryZone = computed(() => getDeliveryZone(deliveryProvince.value));
         const deliveryFee = computed(() => DELIVERY_FEE_TIERS[deliveryZone.value]);
         const deliveryZoneLabel = computed(() => DELIVERY_ZONE_LABELS[deliveryZone.value]);
-        const checkoutTotal = computed(() => cartTotal.value + deliveryFee.value);
+        const checkoutTotal = computed(() => checkoutSubtotal.value + deliveryFee.value);
 
         const provinceGroups = computed(() => Object.keys(PH_LOCATION_DATA).map((regionName) => ({
             region: regionName,
@@ -2744,6 +3618,7 @@ createApp({
                 email: user.email || '',
                 phone: user.phone || '',
                 street: user.street || '',
+                barangay: user.barangay || '',
                 apartment: user.apartment || '',
                 province: user.province || '',
                 city: user.city || ''
@@ -2832,6 +3707,15 @@ createApp({
                 hasError = true;
             }
 
+            // Barangay: required for delivery routing (same rule as registration)
+            if (!(form.barangay || '').trim()) {
+                profileErrors.value.barangay = 'Barangay is required';
+                hasError = true;
+            } else if ((form.barangay || '').trim().length > 80) {
+                profileErrors.value.barangay = 'Barangay must be at most 80 characters long';
+                hasError = true;
+            }
+
             if (!form.province) {
                 profileErrors.value.province = 'Please select your State/Province';
                 hasError = true;
@@ -2887,6 +3771,7 @@ createApp({
                     email: email,
                     phone: form.phone.trim(),
                     street: form.street.trim(),
+                    barangay: (form.barangay || '').trim(),
                     apartment: (form.apartment || '').trim(),
                     province: form.province,
                     city: form.city,
@@ -2945,6 +3830,12 @@ createApp({
                 }
 
                 const currentHash = await hashPassword(form.current);
+                // A null hash means hashing was unavailable (non-secure
+                // origin) — never treat that as a correct password.
+                if (!currentHash) {
+                    pwChangeErrors.value.general = 'Password change needs a secure connection. Please open this site with https://';
+                    return;
+                }
                 if (currentHash !== users[idx].passwordHash) {
                     pwChangeErrors.value.current = 'Current password is incorrect';
                     return;
@@ -2953,7 +3844,12 @@ createApp({
                 // Simulate network delay
                 await new Promise(resolve => setTimeout(resolve, 400));
 
-                users[idx].passwordHash = await hashPassword(form.next);
+                const nextHash = await hashPassword(form.next);
+                if (!nextHash) {
+                    pwChangeErrors.value.general = 'Password change needs a secure connection. Please open this site with https://';
+                    return;
+                }
+                users[idx].passwordHash = nextHash;
                 users[idx].passwordChangedAt = new Date().toISOString();
                 saveUsers(users);
 
@@ -3033,14 +3929,23 @@ createApp({
                 hasError = true;
             }
 
+            // Barangay: required (used for actual delivery routing)
+            if (!(form.barangay || '').trim()) {
+                registerErrors.value.barangay = 'Barangay is required';
+                hasError = true;
+            } else if ((form.barangay || '').trim().length > 80) {
+                registerErrors.value.barangay = 'Barangay must be at most 80 characters long';
+                hasError = true;
+            }
+
             // Apartment/Suite: optional (no validation)
 
-            // State/Province: required, must be picked from the list
+            // Province: required, must be picked from the list
             if (!form.province) {
-                registerErrors.value.province = 'Please select your State/Province';
+                registerErrors.value.province = 'Please select your Province';
                 hasError = true;
             } else if (!PROVINCE_INDEX[form.province]) {
-                registerErrors.value.province = 'Please select a valid State/Province from the list';
+                registerErrors.value.province = 'Please select a valid Province from the list';
                 hasError = true;
             }
 
@@ -3049,16 +3954,19 @@ createApp({
                 registerErrors.value.city = 'Please select your City/Municipality';
                 hasError = true;
             } else if (!(PROVINCE_INDEX[form.province] || []).includes(form.city)) {
-                registerErrors.value.city = 'Please select a valid City/Municipality for the selected State/Province';
+                registerErrors.value.city = 'Please select a valid City/Municipality for the selected Province';
                 hasError = true;
             }
 
-            // Password: required, min 6 characters
+            // Password: required, 8+ characters with uppercase, lowercase and a number
             if (!form.password) {
                 registerErrors.value.password = 'Password is required';
                 hasError = true;
-            } else if (form.password.length < 6) {
-                registerErrors.value.password = 'Password must be at least 6 characters';
+            } else if (!pwRequirementsMet.value) {
+                registerErrors.value.password = 'Password must include ' + pwMissingRequirements().join(', ');
+                hasError = true;
+            } else if (form.password.length > 64) {
+                registerErrors.value.password = 'Password must be at most 64 characters long';
                 hasError = true;
             }
 
@@ -3080,10 +3988,34 @@ createApp({
             return !hasError;
         };
 
+        // A failed submit that only paints red text halfway down the page reads
+        // as "the button does nothing". Send the customer to the exact field
+        // that failed and put the caret in it.
+        const focusFirstInvalidField = async () => {
+            await nextTick();
+            const scope = document.querySelector('form');
+            if (!scope) return;
+            const marker = scope.querySelector('.input-error') || scope.querySelector('.field-error');
+            if (!marker) return;
+            const group = marker.closest('.form-group') || marker.parentElement;
+            const field = (marker.classList.contains('input-error') ? marker : null)
+                || (group ? group.querySelector('input, select, textarea') : null)
+                || marker;
+            if (field && typeof field.focus === 'function') {
+                field.focus({ preventScroll: true });
+            }
+            if (field && typeof field.scrollIntoView === 'function') {
+                field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        };
+
         const handleRegister = async () => {
             if (registerRateLimited.value) return;
 
-            if (!validateRegisterForm()) return;
+            if (!validateRegisterForm()) {
+                await focusFirstInvalidField();
+                return;
+            }
 
             registerSubmitting.value = true;
 
@@ -3112,12 +4044,26 @@ createApp({
 
                 // Hash password (simulated - use Argon2id on server in production)
                 const passwordHash = await hashPassword(form.password);
+                if (!passwordHash) {
+                    registerErrors.value.general = 'Registration needs a secure connection. Please open this site with https://';
+                    registerSubmitting.value = false;
+                    return;
+                }
 
                 // Generate verification token
                 const verificationToken = Array.from(crypto.getRandomValues(new Uint8Array(32)),
                     b => b.toString(16).padStart(2, '0')).join('');
 
                 // Create user record
+                // There is no shared user database (storage is
+                // per-browser). The demo owner is seeded on first load
+                // (see seedDemoState), so in practice every
+                // registration is a customer. The admin slot is only
+                // handed out when this browser somehow has no owner at
+                // all AND this is the very first account — never to a
+                // second registrant.
+                const hasAdmin = users.some(u => u.role === 'admin');
+                const isFirstUser = users.length === 0 && !hasAdmin;
                 const firstName = form.firstName.trim();
                 const lastName = form.lastName.trim();
                 const createdAt = new Date().toISOString();
@@ -3125,7 +4071,7 @@ createApp({
                     id: 'USR-' + String(users.length + 1).padStart(3, '0'),
                     // Stored automatically (no input fields for these)
                     fullname: firstName + ' ' + lastName,
-                    role: 'customer',
+                    role: isFirstUser ? 'admin' : 'customer',
                     country: 'PH',
                     created_at: createdAt,
                     // Registration fields
@@ -3136,6 +4082,7 @@ createApp({
                     phone: form.phone.trim(),
                     street: form.street.trim(),
                     apartment: (form.apartment || '').trim(),
+                    barangay: (form.barangay || '').trim(),
                     province: form.province,
                     city: form.city,
                     passwordHash: passwordHash,
@@ -3158,6 +4105,7 @@ createApp({
 
                 // Show success + email verification screen
                 registrationSuccess.value = true;
+                emailVerified.value = false;
                 showToast('Account created! Please verify your email.');
 
             } catch (error) {
@@ -3184,8 +4132,9 @@ createApp({
             }
 
             if (users[userIndex].isVerified) {
+                safeRemoveItem(sessionStorage, 'blooms_pending_verify_email');
+                emailVerified.value = true;
                 flashToast('Email already verified', 'info');
-                navigateTo('login');
                 return;
             }
 
@@ -3201,8 +4150,30 @@ createApp({
             saveUsers(users);
 
             safeRemoveItem(sessionStorage, 'blooms_pending_verify_email');
-            flashToast('Email verified successfully! You can now log in.', 'success');
-            navigateTo('login');
+            emailVerified.value = true;
+            flashToast('Account verified successfully! You may now log in.', 'success');
+        };
+
+        // Start a fresh registration (clears the demo verification result too)
+        const registerAnother = () => {
+            registrationSuccess.value = false;
+            emailVerified.value = false;
+            registerErrors.value = {};
+            registerForm.value = {
+                firstName: '',
+                lastName: '',
+                email: '',
+                phone: '',
+                street: '',
+                apartment: '',
+                barangay: '',
+                province: '',
+                city: '',
+                password: '',
+                confirmPassword: '',
+                terms: false,
+                showPassword: false
+            };
         };
 
         // Login rate limiting (simulated)
@@ -3253,7 +4224,7 @@ createApp({
         const lowStockItemsCount = computed(() => lowStockItems.value.length);
         const totalSalesRevenue = computed(() => sales.value.reduce((sum, s) => sum + Number(s.amount), 0));
         const todaySalesRevenue = computed(() => {
-            const todayStr = new Date().toISOString().substr(0, 10);
+            const todayStr = todayLocal();
             return sales.value
                 .filter(s => s.date === todayStr)
                 .reduce((sum, s) => sum + Number(s.amount), 0);
@@ -3267,7 +4238,10 @@ createApp({
 
             sales.value.forEach(s => {
                 const amt = Number(s.amount) || 0;
-                const method = s.paymentMethod || 'Other';
+                const raw = s.paymentMethod || 'Other';
+                // COD is paid in cash on delivery — bucket it with
+                // Cash so the report keeps its two real tenders.
+                const method = raw.toLowerCase().includes('cod') ? 'Cash' : raw;
                 if (method.toLowerCase().includes('bank')) return;
                 totals[method] = (totals[method] || 0) + amt;
                 counts[method] = (counts[method] || 0) + 1;
@@ -3349,18 +4323,37 @@ createApp({
             });
         });
 
+        // Sale dates are YYYY-MM-DD strings; ranges compare against today
+        const inSalesDateRange = (dateStr, range) => {
+            if (range === 'All') return true;
+            if (!dateStr) return false;
+            const d = new Date(dateStr + 'T00:00:00');
+            if (isNaN(d.getTime())) return false;
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            if (range === 'Today') return d >= today && d < new Date(today.getTime() + 86400000);
+            if (range === 'Week') {
+                const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
+                return d >= monday && d < new Date(monday.getTime() + 7 * 86400000);
+            }
+            if (range === 'Month') return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth();
+            if (range === 'Year') return d.getFullYear() === today.getFullYear();
+            return true;
+        };
+
         const filteredSales = computed(() => {
             return sales.value.filter(s => {
                 const matchesSearch = s.customerName.toLowerCase().includes(salesSearch.value.toLowerCase()) ||
                                       s.id.toLowerCase().includes(salesSearch.value.toLowerCase()) ||
                                       s.paymentMethod.toLowerCase().includes(salesSearch.value.toLowerCase());
-                return matchesSearch;
+                return matchesSearch && inSalesDateRange(s.date, salesDateFilter.value);
             });
         });
 
         return {
             currentScreen,
             activeModal,
+            viewOrder,
             isLoggedIn,
             isAdminRole,
             isMobileMenuOpen,
@@ -3390,19 +4383,20 @@ createApp({
             showConfirm,
             isEditingOrder,
             orderForm,
-            selectedInventoryItem,
-            maxOrderQuantity,
+            firstLineItem,
+            recalcOrderTotals,
+            getLineMaxStock,
+            addOrderLine,
+            removeOrderLine,
             updateOrderCalculatedPrice,
-            onBouquetTypeChange,
             isEditingItem,
             itemForm,
             isEditingSale,
             saleForm,
             navigateTo,
             handleLogin,
-            handleLogout,
             fillDemoCredentials,
-            IS_DEMO,
+            handleLogout,
             openModal,
             closeModal,
             saveOrder,
@@ -3415,6 +4409,7 @@ createApp({
             deleteItem,
             saveSale,
             deleteSale,
+            csvEscape,
             exportReportCSV,
             totalOrdersCount,
             pendingOrdersCount,
@@ -3439,6 +4434,7 @@ createApp({
             placedOrderId,
             clearCustomerOrderErrors,
             filteredCustomerInventory,
+            shopStat,
             customerSelectedBouquet,
             customerMaxQuantity,
             customerTotalPrice,
@@ -3453,13 +4449,24 @@ createApp({
             trackCustomerOrder,
             getStatusStepClass,
             getLiveStock,
+            getLivePrice,
             getProductImage,
             imageLoadErrors,
+            orderItems,
+            lineItemImage,
+            bouquetLabel,
+            orderDesigns,
+            nonDesignItems,
+            orderFlowersTotal,
+            orderImageFailures,
             cartStockIssues,
             getEstimatedDelivery,
             getStatusTimestamp,
             isCustomerScreen,
             myOrders,
+            groupedMyOrders,
+            groupImageErrors,
+            orderStatusBadgeClass,
             selectedOrder,
             viewOrderDetails,
             ORDER_STAGES,
@@ -3475,6 +4482,26 @@ createApp({
             cartCount,
             cartTotal,
             cartPulse,
+            cartSelected,
+            isCartSelected,
+            toggleCartSelected,
+            cartAllSelected,
+            toggleSelectAllCart,
+            cartSelectedItems,
+            cartSelectedCount,
+            cartSelectedTotal,
+            cartSelectedIssues,
+            checkoutSelected,
+            checkoutLines,
+            checkoutCart,
+            checkoutCount,
+            checkoutSubtotal,
+            swipeKey,
+            swipeDx,
+            swipeStart,
+            swipeMove,
+            swipeEnd,
+            closeCartSwipe,
             addToCart,
             WRAPPER_OPTIONS,
             RIBBON_OPTIONS,
@@ -3482,6 +4509,10 @@ createApp({
             customErrors,
             selectedCustomFlower,
             customizerPrice,
+            CUSTOM_BOUQUET_PRICE,
+            MADE_TO_ORDER_MAX,
+            isMadeToOrder,
+            cartLineStock,
             setWrapper,
             setRibbon,
             bouquetPreview,
@@ -3501,6 +4532,7 @@ createApp({
             clearSlot,
             clearSlots,
             fillEmptySlots,
+            flowerStatusMsg,
             bouquetFlowerSummary,
             canAddCustom,
             addCustomToCart,
@@ -3540,9 +4572,11 @@ createApp({
             registerErrors,
             registerSubmitting,
             registrationSuccess,
+            emailVerified,
             registerRateLimited,
             registerRateLimitSeconds,
             pwChecks,
+            pwRequirementsMet,
             clearRegisterError,
             onPasswordInput,
             provinceGroups,
@@ -3586,7 +4620,11 @@ createApp({
             clearPwChangeError,
             changePassword,
             handleRegister,
-            verifyEmail
+            verifyEmail,
+            registerAnother,
+            legalModal,
+            openLegalModal,
+            closeLegalModal
         };
     }
 }).component('bouquet-thumb', BouquetThumb).mount('#app');

@@ -1,16 +1,16 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkout - Blooms by Jen</title>
-    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261030">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script defer src="../JS/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="../CSS/style.css">
+    <link rel="stylesheet" href="../CSS/fontawesome/css/all.min.css">
+    <script defer src="../JS/vue.global.prod.js?v=20261030"></script>
+    <link rel="stylesheet" href="../CSS/style.css?v=20261030">
 </head>
 <body>
 
@@ -31,14 +31,14 @@
             <li><a class="nav-link" @click.prevent="navigateTo('cart')" href="cart.html"><i class="fa-solid fa-cart-shopping"></i> <span>Cart</span> <span class="cart-badge" :class="{ 'cart-badge-pulse': cartPulse }" v-if="cartCount > 0">{{ cartCount }}</span></a></li>
             <li v-if="isLoggedIn"><a class="nav-link" @click.prevent="navigateTo('myorders')" href="myorders.html"><i class="fa-solid fa-receipt"></i> <span>My Orders</span></a></li>
             <li v-if="isLoggedIn"><a class="nav-link" @click.prevent="navigateTo('profile')" href="profile.html"><i class="fa-solid fa-user"></i> <span>Profile</span></a></li>
-            <li v-if="isLoggedIn" class="nav-notification-item">
-                <a class="nav-link" role="button" aria-label="Notifications" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
-                    <i class="fa-solid fa-bell"></i>
-                    <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
-                </a>
-            </li>
             <li v-if="isLoggedIn"><a class="nav-link" @click.prevent="handleLogout" href="#"><i class="fa-solid fa-power-off"></i> <span>Logout</span></a></li>
+
         </ul>
+
+            <a class="nav-link nav-notification-btn" role="button" aria-label="Notifications" v-if="isLoggedIn" @click.prevent="notificationsOpen = !notificationsOpen; if (notificationsOpen) markNotificationsRead();" href="#">
+                <i class="fa-solid fa-bell"></i>
+                <span class="notification-badge" v-if="unreadNotifications > 0">{{ unreadNotifications }}</span>
+            </a>
     </nav>
 
     <!-- NOTIFICATION DROPDOWN -->
@@ -170,7 +170,7 @@
                     <h2 class="checkout-section-title"><i class="fa-solid fa-receipt"></i> Order Summary</h2>
 
                     <div class="checkout-summary-items">
-                        <div class="checkout-summary-item" v-for="item in cart" :key="item.lineId || item.itemId">
+                        <div class="checkout-summary-item" v-for="item in checkoutCart" :key="item.lineId || item.itemId">
                             <div class="checkout-item-info">
                                 <bouquet-thumb v-if="item.customizations && item.customizations.bouquet"
                                     :c="item.customizations" class="checkout-item-img"></bouquet-thumb>
@@ -179,21 +179,21 @@
                                     loading="lazy" @error="imageLoadErrors[item.itemId] = true">
                                 <div class="checkout-item-text">
                                     <strong>{{ item.itemName }}</strong>
-                                    <span class="cell-subtext">x{{ item.quantity }} × ₱{{ item.unitPrice.toLocaleString() }}</span>
+                                    <span class="cell-subtext">x{{ item.quantity }} × ₱{{ getLivePrice(item).toLocaleString() }}</span>
                                     <span class="cell-subtext checkout-custom-line" v-if="item.customizations">
                                         {{ item.customizations.wrapperColor }} wrapper · {{ item.customizations.ribbonColor }} ribbon
                                         <template v-if="item.customizations.message"> · letter attached</template>
                                     </span>
                                 </div>
                             </div>
-                            <div class="checkout-item-total">₱{{ (item.unitPrice * item.quantity).toLocaleString() }}</div>
+                            <div class="checkout-item-total">₱{{ (getLivePrice(item) * item.quantity).toLocaleString() }}</div>
                         </div>
                     </div>
 
                     <div class="checkout-summary-totals">
                         <div class="checkout-total-row">
-                            <span>Items ({{ cartCount }})</span>
-                            <span>₱{{ cartTotal.toLocaleString() }}</span>
+                            <span>Items ({{ checkoutCount }})</span>
+                            <span>₱{{ checkoutSubtotal.toLocaleString() }}</span>
                         </div>
                         <div class="checkout-total-row">
                             <span>Delivery Fee <span class="cell-subtext">· {{ deliveryZoneLabel }}</span></span>
@@ -207,7 +207,7 @@
 
                     <button class="btn btn-primary checkout-place-btn"
                         @click="goToPayment()"
-                        :disabled="checkoutSubmitting || cart.length === 0">
+                        :disabled="checkoutSubmitting || checkoutCart.length === 0">
                         <i class="fa-solid fa-arrow-right" v-if="!checkoutSubmitting"></i>
                         <i class="fa-solid fa-spinner fa-spin" v-if="checkoutSubmitting"></i>
                         {{ checkoutForm.paymentMethod === 'COD' ? 'Place Order (COD)' : 'Proceed to Payment' }}
@@ -231,7 +231,7 @@
             <h3>Confirm Your Order</h3>
             <p class="order-confirm-text">
                 You're about to place an order for
-                <strong>{{ cartCount }} item(s)</strong> totaling
+                <strong>{{ checkoutCount }} item(s)</strong> totaling
                 <strong>₱{{ checkoutTotal.toLocaleString() }}</strong>.
             </p>
 
@@ -272,7 +272,26 @@
         </div>
     </div>
 
-    <!-- TOAST -->
+        <!-- CONFIRM MODAL -->
+    <div v-if="confirmModal.show" class="modal-overlay" @click.self="confirmModal.show = false">
+        <div class="modal-content" style="max-width:420px;text-align:center;">
+            <div class="modal-body" style="padding:2rem;">
+                <div class="confirm-modal-logo" :class="'confirm-logo-' + confirmModal.confirmTone">
+                    <i class="fa-solid" :class="confirmModal.logoIcon" style="font-size:1.8rem;"></i>
+                </div>
+                <h3 style="margin-bottom:0.5rem;">{{ confirmModal.title }}</h3>
+                <p style="color:var(--slate-600);">{{ confirmModal.message }}</p>
+            </div>
+            <div class="modal-footer" style="justify-content:center;border-top:none;">
+                <button class="btn btn-secondary" @click="confirmModal.show = false">Cancel</button>
+                <button class="btn" :class="confirmModal.confirmTone === 'danger' ? 'btn-danger' : 'btn-primary'" @click="confirmModal.onConfirm(); confirmModal.show = false;">
+                    <i class="fa-solid" :class="confirmModal.confirmIcon"></i> {{ confirmModal.confirmLabel }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+<!-- TOAST -->
     <div class="toast-container" v-if="toast.show">
         <div class="toast" :class="'toast-' + toast.type" role="alert"><i class="toast-icon" :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-info')"></i><span>{{ toast.message }}</span></div>
     </div>
@@ -283,6 +302,7 @@
 
 </div>
 
-<script defer src="../JS/app.js"></script>
+<script defer src="../JS/ph-locations.js?v=20261030"></script>
+    <script defer src="../JS/app.js?v=20261030"></script>
 </body>
 </html>
