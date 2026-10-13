@@ -19,15 +19,14 @@ A frontend prototype floral management system for Blooms by Jen, a handmade flow
 
 - HTML5, CSS3, JavaScript (Vanilla JS)
 - Vue.js 3 (bundled locally at `JS/vue.global.prod.js`, no CDN dependency)
-- Bootstrap-like utility styling / custom Glassmorphism theme
 - Google Fonts (Playfair Display, Plus Jakarta Sans)
 - Font Awesome 6 Icons (self-hosted in `CSS/fontawesome/`)
 
 
 ## Live Demo
 
-- Deployed Live Link: https://blooms-by-jen.infinityfree.me/
-- Deployment Platform: InfinityFree
+- Deployed Live Link: https://blooms-by-jen.vercel.app/Pages/landingpage.html
+- Deployment Platform: Vercel
 - Repository: https://github.com/Dreicode/BLOOMS-BY-JEN
 
 ## Setup and Installation
@@ -50,11 +49,6 @@ A frontend prototype floral management system for Blooms by Jen, a handmade flow
 The app has **no backend** — all data is stored in your browser's
 `localStorage`, and no password is stored anywhere in the source code.
 
-- **The first account you register becomes the shop owner (admin).**
-  Every account registered after that is a customer.
-- To start over, clear the site's data (or open it in a fresh browser).
-- Because there is no shared database, do **not** enter real customer
-  or payment details — treat all data as demo data.
 
 ## Project Structure
 
